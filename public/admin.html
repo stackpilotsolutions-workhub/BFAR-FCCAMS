@@ -1,0 +1,1169 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a84ff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: *; img-src 'self' data: blob: https: *;"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <title>Admin Dashboard</title>
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.json" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <link rel="stylesheet" href="/assets/css/admin.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  </head>
+  <body class="auth-bg">
+    <!-- ADMIN TOPBAR HEADER -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <img src="/bfar.svg" alt="FishMonitor Logo" class="brand-logo" />
+        <span class="title">BFAR Monitoring</span>
+      </div>
+
+      <div id="user_info" class="user-info">
+        <div
+          id="user_profile"
+          class="user-profile-wrapper"
+          style="display: none"
+        >
+          <div id="user_name" class="user-name"></div>
+          <div id="user_role" class="user-role"></div>
+        </div>
+        <button
+          id="logout_btn"
+          class="logout_btn"
+          style="display: none"
+          onclick="logoutAdmin()"
+        >
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Logout</span>
+        </button>
+      </div>
+    </header>
+
+    <div id="confirm_overlay"><div id="confirm_popup"></div></div>
+    <div id="history_overlay"><div id="history_popup"></div></div>
+    <div id="catch_history_overlay"><div id="catch_history_popup"></div></div>
+
+    <div class="layout" id="admin_app" style="display: none">
+      <div id="drawer_overlay" onclick="toggleDrawer(false)"></div>
+      <!-- Sidebar ni Admin -->
+      <div id="sidebar" role="navigation" aria-label="Admin menu">
+        <div class="group">
+          <button
+            data-module="mod_users"
+            onclick="showAdminModule('mod_users')"
+          >
+            <i class="fa-solid fa-users icon"></i
+            ><span class="menu-label">Users</span
+            ><span class="menu-badge" data-badge-for="mod_users" hidden></span>
+          </button>
+          <button
+            data-module="mod_catches"
+            onclick="showAdminModule('mod_catches')"
+          >
+            <i class="fa-solid fa-fish icon"></i
+            ><span class="menu-label">Catches</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_catches"
+              hidden
+            ></span>
+          </button>
+          <button
+            data-module="mod_tracks"
+            onclick="showAdminModule('mod_tracks')"
+          >
+            <i class="fa-solid fa-route icon"></i
+            ><span class="menu-label">Tracks</span
+            ><span class="menu-badge" data-badge-for="mod_tracks" hidden></span>
+          </button>
+          <button data-module="mod_map" onclick="showAdminModule('mod_map')">
+            <i class="fa-solid fa-map-location-dot icon"></i
+            ><span class="menu-label">Map</span>
+          </button>
+          <button
+            data-module="mod_species"
+            onclick="showAdminModule('mod_species')"
+          >
+            <i class="fa-solid fa-fish-fins icon"></i
+            ><span class="menu-label">Species</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_species"
+              hidden
+            ></span>
+          </button>
+          <button
+            data-module="mod_fishing_gears"
+            onclick="showAdminModule('mod_fishing_gears')"
+          >
+            <i class="fa-solid fa-anchor icon"></i
+            ><span class="menu-label">Gears</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_fishing_gears"
+              hidden
+            ></span>
+          </button>
+          <button
+            data-module="mod_exports"
+            onclick="showAdminModule('mod_exports')"
+          >
+            <i class="fa-solid fa-file-export icon"></i
+            ><span class="menu-label">Exports</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_exports"
+              hidden
+            ></span>
+          </button>
+          <button data-module="mod_live" onclick="showAdminModule('mod_live')">
+            <i class="fa-solid fa-satellite-dish icon"></i
+            ><span class="menu-label">Live</span
+            ><span class="menu-badge" data-badge-for="mod_live" hidden></span>
+          </button>
+          <button
+            data-module="mod_vessels"
+            onclick="showAdminModule('mod_vessels')"
+          >
+            <i class="fa-solid fa-ship icon"></i
+            ><span class="menu-label">Vessels</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_vessels"
+              hidden
+            ></span>
+          </button>
+          <button
+            data-module="mod_activity"
+            onclick="showAdminModule('mod_activity')"
+          >
+            <i class="fa-solid fa-water icon"></i
+            ><span class="menu-label">Activity</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_activity"
+              hidden
+            ></span>
+          </button>
+        </div>
+      </div>
+      <!-- eto main content -->
+      <div id="content">
+        <div id="content_top">
+          <button id="menu_btn" onclick="toggleDrawer(true)">
+            <i class="fa-solid fa-bars"></i> Menu
+          </button>
+          <button id="refresh_btn" onclick="refreshDataAdmin()">
+            <i class="fa-solid fa-rotate-right"></i> Refresh
+          </button>
+          <button id="install_btn" onclick="installAdminApp()">
+            <i class="fa-solid fa-download"></i> Install App
+          </button>
+        </div>
+
+        <div class="card" id="mod_users" style="display: none">
+          <h2>
+            <i class="fa-solid fa-users" style="color: var(--primary)"></i>
+            Users
+          </h2>
+
+          <div
+            id="userFormContainer"
+            style="
+              background: var(--background);
+              padding: 16px;
+              border-radius: 12px;
+              margin-bottom: 24px;
+            "
+          >
+            <div
+              id="userFormHeader"
+              style="
+                font-weight: 600;
+                font-size: 12px;
+                margin-bottom: 12px;
+                color: var(--text-muted);
+                letter-spacing: 0.5px;
+              "
+            >
+              CREATE NEW ACCOUNT
+            </div>
+
+            <!-- Hidden input to store active editing state -->
+            <input type="hidden" id="editingUserId" value="" />
+
+            <div
+              class="grid-form"
+              style="
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                border: none;
+              "
+            >
+              <input id="newUserName" placeholder="Name" />
+              <input id="newUserEmail" placeholder="Email" />
+              <div class="passwrap" style="margin: 0">
+                <input
+                  id="newUserPass"
+                  type="password"
+                  placeholder="Password (leave blank to keep current)"
+                />
+                <button
+                  id="new_user_pass_toggle"
+                  class="toggle-eye"
+                  onclick="
+                    togglePassword('newUserPass', 'new_user_pass_toggle')
+                  "
+                >
+                  🔒
+                </button>
+              </div>
+              <select id="newUserRole" style="margin: 0">
+                <option value="inspector">NSAP Enumerator</option>
+                <option value="admin">Admin</option>
+              </select>
+
+              <div style="display: flex; gap: 8px">
+                <button
+                  id="userFormSubmitBtn"
+                  onclick="saveUserForm()"
+                  style="margin: 0; flex: 1"
+                >
+                  <i class="fa-solid fa-plus"></i> Create User
+                </button>
+                <button
+                  id="userFormCancelBtn"
+                  onclick="resetUserForm()"
+                  style="
+                    margin: 0;
+                    display: none;
+                    background: var(--text-muted, #6b7280);
+                  "
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12px;
+              padding: 0 4px;
+            "
+          >
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600">
+              Registered Users
+            </h3>
+            <div style="position: relative; width: 320px">
+              <i
+                class="fa-solid fa-magnifying-glass"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  color: var(--text-muted);
+                  font-size: 13px;
+                "
+              ></i>
+              <input
+                id="userSearch"
+                placeholder="Search by user, email or role..."
+                oninput="filterUsers()"
+                style="
+                  padding: 8px 12px 8px 36px;
+                  margin: 0;
+                  width: 100%;
+                  height: 38px;
+                  font-size: 13px;
+                  border-radius: 20px;
+                  background: var(--background);
+                "
+              />
+            </div>
+          </div>
+
+          <table id="users"></table>
+        </div>
+
+        <div class="card" id="mod_fishing_gears" style="display: none">
+          <h2>
+            <i class="fa-solid fa-anchor" style="color: var(--primary)"></i>
+            Fishing Gears
+          </h2>
+
+          <!-- Gear Form Container -->
+          <div
+            id="gearFormContainer"
+            style="
+              background: var(--background);
+              padding: 16px;
+              border-radius: 12px;
+              margin-bottom: 24px;
+            "
+          >
+            <div
+              id="gearFormHeader"
+              style="
+                font-weight: 600;
+                font-size: 12px;
+                margin-bottom: 12px;
+                color: var(--text-muted);
+                letter-spacing: 0.5px;
+              "
+            >
+              ADD NEW FISHING GEAR
+            </div>
+
+            <!-- Hidden input to track editing state -->
+            <input type="hidden" id="editingGearId" value="" />
+
+            <div
+              class="grid-form"
+              style="
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                border: none;
+              "
+            >
+              <input id="gearCodeInput" placeholder="Gear Code (e.g., GN-01)" />
+              <input
+                id="gearNameInput"
+                placeholder="Gear Name (e.g., Drift Gillnet)"
+              />
+
+              <div style="display: flex; gap: 8px">
+                <button
+                  id="gearFormSubmitBtn"
+                  onclick="saveFishingGearForm()"
+                  style="margin: 0; flex: 1"
+                >
+                  <i class="fa-solid fa-plus"></i> Add Gear
+                </button>
+                <button
+                  id="gearFormCancelBtn"
+                  onclick="resetFishingGearForm()"
+                  style="
+                    margin: 0;
+                    display: none;
+                    background: var(--text-muted, #6b7280);
+                  "
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Table Header & Search Input -->
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12px;
+              padding: 0 4px;
+            "
+          >
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600">
+              Registered Fishing Gears
+            </h3>
+            <div style="position: relative; width: 320px">
+              <i
+                class="fa-solid fa-magnifying-glass"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  color: var(--text-muted);
+                  font-size: 13px;
+                "
+              ></i>
+              <input
+                id="gearSearch"
+                placeholder="Search by code or gear name..."
+                oninput="filterFishingGears()"
+                style="
+                  padding: 8px 12px 8px 36px;
+                  margin: 0;
+                  width: 100%;
+                  height: 38px;
+                  font-size: 13px;
+                  border-radius: 20px;
+                  background: var(--background);
+                "
+              />
+            </div>
+          </div>
+
+          <!-- Data Table -->
+          <table id="fishingGearsTable"></table>
+        </div>
+
+        <div class="card" id="mod_catches" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            "
+          >
+            <h2 style="margin: 0">
+              <i class="fa-solid fa-fish" style="color: var(--primary)"></i> All
+              Catches
+            </h2>
+            <div style="position: relative; width: 320px">
+              <i
+                class="fa-solid fa-magnifying-glass"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  color: var(--text-muted);
+                  font-size: 13px;
+                "
+              ></i>
+              <input
+                id="catchSearch"
+                placeholder="Search by species, user, vessel..."
+                oninput="filterCatches()"
+                style="
+                  padding: 8px 12px 8px 36px;
+                  margin: 0;
+                  width: 100%;
+                  height: 38px;
+                  font-size: 13px;
+                  border-radius: 20px;
+                  background: var(--background);
+                "
+              />
+            </div>
+          </div>
+          <table id="catches"></table>
+        </div>
+
+        <div class="card" id="mod_tracks" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            "
+          >
+            <h2 style="margin: 0">
+              <i class="fa-solid fa-route" style="color: var(--primary)"></i>
+              GPS Tracks
+            </h2>
+            <div style="display: flex; align-items: center; gap: 12px">
+              <button
+                id="bulkDeleteTracksBtn"
+                onclick="confirmBulkDeleteTracks()"
+                disabled
+                style="
+                  background: #ff3b30;
+                  width: auto;
+                  padding: 8px 16px;
+                  height: auto;
+                  font-size: 13px;
+                "
+              >
+                <i class="fa-solid fa-trash-can"></i> Delete Selected (<span
+                  id="selectedTrackCount"
+                  >0</span
+                >)
+              </button>
+              <div style="position: relative; width: 320px">
+                <i
+                  class="fa-solid fa-magnifying-glass"
+                  style="
+                    position: absolute;
+                    left: 14px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: var(--text-muted);
+                    font-size: 13px;
+                  "
+                ></i>
+                <input
+                  id="trackSearch"
+                  placeholder="Search by user name or email..."
+                  oninput="filterTracks()"
+                  style="
+                    padding: 8px 12px 8px 36px;
+                    margin: 0;
+                    width: 100%;
+                    height: 38px;
+                    font-size: 13px;
+                    border-radius: 20px;
+                    background: var(--background);
+                  "
+                />
+              </div>
+            </div>
+          </div>
+          <div
+            id="bulkDeleteMsg"
+            class="small"
+            style="color: #ff9500; margin-bottom: 12px; display: none"
+          ></div>
+          <table id="tracks"></table>
+        </div>
+
+        <div class="card" id="mod_map" style="display: none">
+          <h2>
+            <i
+              class="fa-solid fa-map-location-dot"
+              style="color: var(--primary)"
+            ></i>
+            Live User Map
+          </h2>
+          <div class="grid-form" style="grid-template-columns: auto auto 1fr">
+            <button onclick="refreshUserMap(true)">
+              <i class="fa-solid fa-rotate"></i> Refresh Locations
+            </button>
+            <button onclick="fitUserMap()">
+              <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Fit
+              All
+            </button>
+            <div
+              class="small"
+              id="user_map_status"
+              style="display: flex; align-items: center"
+            ></div>
+          </div>
+          <div id="user_map"></div>
+        </div>
+
+        <!-- SPECIES MANAGEMENT CARD -->
+        <div class="card" id="mod_species" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              flex-wrap: wrap;
+              gap: 12px;
+              margin-bottom: 16px;
+            "
+          >
+            <h2 style="margin: 0">
+              <i
+                class="fa-solid fa-fish-fins"
+                style="color: var(--primary)"
+              ></i>
+              Species Management
+            </h2>
+            <div style="display: flex; gap: 8px">
+              <button onclick="openSpeciesModal()">
+                <i class="fa-solid fa-plus"></i> Add_Species
+              </button>
+              <button onclick="reloadSpecies()">
+                <i class="fa-solid fa-rotate"></i> Reload
+              </button>
+            </div>
+          </div>
+
+          <!-- Search Filter Input -->
+          <div style="margin-bottom: 16px">
+            <div style="position: relative; width: 100%">
+              <input
+                type="text"
+                id="speciesSearchInput"
+                placeholder="Search species by name, scientific name, or conservation status..."
+                oninput="filterSpecies()"
+                style="width: 100%; padding-left: 36px"
+              />
+              <i
+                class="fa-solid fa-magnifying-glass"
+                style="
+                  position: absolute;
+                  left: 12px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  color: #94a3b8;
+                "
+              ></i>
+            </div>
+          </div>
+
+          <!-- Species Grid List -->
+          <ul
+            id="speciesList"
+            style="
+              list-style: none;
+              padding: 0;
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+              gap: 16px;
+            "
+          ></ul>
+        </div>
+
+        <!-- SPECIES CREATE / EDIT MODAL -->
+        <div
+          id="speciesModal"
+          style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <div
+            style="
+              background: #ffffff;
+              width: 90%;
+              max-width: 550px;
+              max-height: 90vh;
+              overflow-y: auto;
+              padding: 24px;
+              border-radius: 12px;
+              box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            "
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 16px;
+              "
+            >
+              <h3 id="speciesModalTitle" style="margin: 0; color: #1e293b">
+                Add New Species
+              </h3>
+              <button
+                onclick="closeSpeciesModal()"
+                style="
+                  background: transparent;
+                  border: none;
+                  color: #64748b;
+                  cursor: pointer;
+                  font-size: 18px;
+                "
+              >
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <form
+              id="speciesForm"
+              onsubmit="saveSpecies(event)"
+              style="display: flex; flex-direction: column; gap: 12px"
+            >
+              <input type="hidden" id="sp_id" />
+
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569"
+                  >Species Name *</label
+                >
+                <input
+                  type="text"
+                  id="sp_name"
+                  placeholder="e.g. Yellowfin Tuna"
+                  required
+                  style="width: 100%"
+                />
+              </div>
+
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569"
+                  >Scientific Name</label
+                >
+                <input
+                  type="text"
+                  id="sp_scientific_name"
+                  placeholder="e.g. Thunnus albacares"
+                  style="width: 100%"
+                />
+              </div>
+
+              <div
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px"
+              >
+                <div>
+                  <label
+                    style="font-size: 12px; font-weight: 600; color: #475569"
+                    >Min Length (cm)</label
+                  >
+                  <input
+                    type="number"
+                    step="0.1"
+                    id="sp_min_length_cm"
+                    placeholder="0.0"
+                    style="width: 100%"
+                  />
+                </div>
+                <div>
+                  <label
+                    style="font-size: 12px; font-weight: 600; color: #475569"
+                    >Max Length (cm)</label
+                  >
+                  <input
+                    type="number"
+                    step="0.1"
+                    id="sp_max_length_cm"
+                    placeholder="0.0"
+                    style="width: 100%"
+                  />
+                </div>
+              </div>
+
+              <div
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px"
+              >
+                <div>
+                  <label
+                    style="font-size: 12px; font-weight: 600; color: #475569"
+                    >Price per KG (₱)</label
+                  >
+                  <input
+                    type="number"
+                    step="0.01"
+                    id="sp_price_per_kg"
+                    placeholder="0.00"
+                    style="width: 100%"
+                  />
+                </div>
+                <div>
+                  <label
+                    style="font-size: 12px; font-weight: 600; color: #475569"
+                    >Conservation Status</label
+                  >
+                  <input
+                    type="text"
+                    id="sp_conservation"
+                    placeholder="e.g. Least Concern"
+                    style="width: 100%"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569"
+                  >Seasonal Allowed</label
+                >
+                <input
+                  type="text"
+                  id="sp_seasonal_allowed"
+                  placeholder="e.g. Year-round or Jan-Oct"
+                  style="width: 100%"
+                />
+              </div>
+
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569"
+                  >Image URL</label
+                >
+                <input
+                  type="url"
+                  id="sp_image_url"
+                  placeholder="https://..."
+                  style="width: 100%"
+                />
+              </div>
+
+              <div>
+                <label style="font-size: 12px; font-weight: 600; color: #475569"
+                  >Description</label
+                >
+                <textarea
+                  id="sp_description"
+                  rows="3"
+                  placeholder="Brief species description..."
+                  style="
+                    width: 100%;
+                    border-radius: 6px;
+                    border: 1px solid #cbd5e1;
+                    padding: 8px;
+                  "
+                ></textarea>
+              </div>
+
+              <div
+                style="
+                  display: flex;
+                  justify-content: flex-end;
+                  gap: 8px;
+                  margin-top: 12px;
+                "
+              >
+                <button
+                  type="button"
+                  onclick="closeSpeciesModal()"
+                  style="background: #94a3b8"
+                >
+                  Cancel
+                </button>
+                <button type="submit">
+                  <i class="fa-solid fa-floppy-disk"></i> Save Species
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="card" id="mod_zones" style="display: none">
+          <h2>
+            <i
+              class="fa-solid fa-shield-halved"
+              style="color: var(--primary)"
+            ></i>
+            Protected Zones
+          </h2>
+
+          <div
+            style="
+              display: grid;
+              grid-template-columns: 1fr 350px;
+              gap: 24px;
+              margin-bottom: 24px;
+            "
+          >
+            <div
+              id="zone_map"
+              style="
+                width: 100%;
+                height: 500px;
+                border-radius: 12px;
+                overflow: hidden;
+                border: 1px solid var(--border);
+              "
+            ></div>
+
+            <div style="display: flex; flex-direction: column; gap: 16px">
+              <div
+                class="small"
+                style="
+                  background: #eff6ff;
+                  padding: 12px;
+                  border-radius: 8px;
+                  border: 1px solid #dbeafe;
+                  color: #1e40af;
+                "
+              >
+                <i class="fa-solid fa-circle-info"></i>
+                <b>How to create a zone:</b><br />
+                1. Click "Start Drawing"<br />
+                2. Click on the map to add points<br />
+                3. Double-click to finish the polygon
+              </div>
+
+              <div style="display: flex; gap: 8px">
+                <button
+                  id="btn_draw_start"
+                  onclick="startDrawingZone()"
+                  style="flex: 1"
+                >
+                  <i class="fa-solid fa-pencil"></i> Start Drawing
+                </button>
+                <button
+                  id="btn_draw_clear"
+                  onclick="clearDrawnZone()"
+                  style="
+                    flex: 1;
+                    background: var(--background);
+                    color: var(--text-main);
+                    border: 1px solid var(--border);
+                  "
+                >
+                  <i class="fa-solid fa-trash"></i> Clear
+                </button>
+              </div>
+
+              <div
+                class="grid-form"
+                style="
+                  margin: 0;
+                  padding: 0;
+                  background: transparent;
+                  border: none;
+                  display: flex;
+                  flex-direction: column;
+                  gap: 8px;
+                "
+              >
+                <label class="small" style="font-weight: 600">Zone Name</label>
+                <input
+                  id="zoneName"
+                  placeholder="e.g. Restricted Fishing Area A"
+                />
+                <button
+                  id="btn_save_zone"
+                  onclick="addZone()"
+                  style="width: 100%"
+                >
+                  <i class="fa-solid fa-plus"></i> Save Zone
+                </button>
+                <button
+                  id="btn_cancel_edit_zone"
+                  onclick="cancelEditZone()"
+                  style="
+                    width: 100%;
+                    display: none;
+                    background: var(--background);
+                    color: var(--text-main);
+                    border: 1px solid var(--border);
+                    box-shadow: none;
+                  "
+                >
+                  <i class="fa-solid fa-times"></i> Cancel Edit
+                </button>
+              </div>
+
+              <div
+                class="collapsible"
+                style="
+                  border: 1px solid var(--border);
+                  border-radius: 8px;
+                  overflow: hidden;
+                "
+              >
+                <div
+                  class="collapsible-header"
+                  onclick="this.parentElement.classList.toggle('open')"
+                  style="
+                    padding: 10px 12px;
+                    background: var(--background);
+                    cursor: pointer;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                  "
+                >
+                  <span class="small" style="font-weight: 600"
+                    >Advanced GeoJSON / Rules</span
+                  >
+                  <i class="fa-solid fa-chevron-down small"></i>
+                </div>
+                <div class="collapsible-content" style="padding: 12px">
+                  <textarea
+                    id="zoneJson"
+                    placeholder="GeoJSON will appear here..."
+                    style="
+                      width: 100%;
+                      height: 100px;
+                      resize: vertical;
+                      font-size: 11px;
+                      font-family: monospace;
+                      margin-bottom: 8px;
+                    "
+                  ></textarea>
+                  <textarea
+                    id="zoneRules"
+                    placeholder='Rules JSON (optional), e.g. {"no_entry":true}'
+                    style="
+                      width: 100%;
+                      height: 60px;
+                      resize: vertical;
+                      font-size: 11px;
+                      font-family: monospace;
+                    "
+                  ></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <h3 style="font-size: 16px; margin-bottom: 12px">
+            Existing Protected Zones
+          </h3>
+          <div
+            id="zoneListContainer"
+            style="
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+              gap: 16px;
+            "
+          ></div>
+          <ul id="zoneList" style="display: none"></ul>
+        </div>
+
+        <div class="card" id="mod_alerts" style="display: none">
+          <h2>
+            <i class="fa-solid fa-bell" style="color: var(--primary)"></i>
+            Active
+          </h2>
+          <table id="alerts"></table>
+        </div>
+
+        <div class="card" id="mod_exports" style="display: none">
+          <h2>
+            <i
+              class="fa-solid fa-file-export"
+              style="color: var(--primary)"
+            ></i>
+            Exports
+          </h2>
+          <div
+            style="
+              background: var(--background);
+              padding: 24px;
+              border-radius: 12px;
+              text-align: center;
+            "
+          >
+            <i
+              class="fa-solid fa-file-excel"
+              style="
+                font-size: 48px;
+                color: var(--success);
+                margin-bottom: 16px;
+              "
+            ></i>
+            <p>
+              Download complete database export including users, catches, and
+              activity logs.
+            </p>
+            <button
+              onclick="downloadExcel()"
+              style="width: auto; padding: 12px 32px"
+            >
+              <i class="fa-solid fa-download"></i> Download Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="card" id="mod_vessels" style="display: none">
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 12px;
+              margin-bottom: 20px;
+            "
+          >
+            <h2 style="margin: 0">
+              <i class="fa-solid fa-ship" style="color: var(--primary)"></i>
+              Vessels
+            </h2>
+            <div style="position: relative; width: 320px">
+              <i
+                class="fa-solid fa-magnifying-glass"
+                style="
+                  position: absolute;
+                  left: 14px;
+                  top: 50%;
+                  transform: translateY(-50%);
+                  color: var(--text-muted);
+                  font-size: 13px;
+                "
+              ></i>
+              <input
+                id="vesselSearch"
+                placeholder="Search by registration #, name, or owner..."
+                oninput="filterVessels()"
+                style="
+                  padding: 8px 12px 8px 36px;
+                  margin: 0;
+                  width: 100%;
+                  height: 38px;
+                  font-size: 13px;
+                  border-radius: 20px;
+                  background: var(--background);
+                "
+              />
+            </div>
+          </div>
+          <table id="vesselsTable"></table>
+        </div>
+
+        <div class="card" id="mod_live" style="display: none">
+          <h2>
+            <i
+              class="fa-solid fa-satellite-dish"
+              style="color: var(--primary)"
+            ></i>
+            Live Tracking
+          </h2>
+          <div class="grid-form">
+            <button onclick="ensureLive(true)">
+              <i class="fa-solid fa-sync"></i> Reconnect Live Stream
+            </button>
+          </div>
+          <div
+            id="live_log"
+            class="small"
+            style="
+              background: var(--background);
+              border: 1px solid var(--border);
+              border-radius: 12px;
+              padding: 12px;
+              min-height: 80px;
+            "
+          ></div>
+        </div>
+
+        <div class="card" id="mod_activity" style="display: none">
+          <h2>
+            <i class="fa-solid fa-water" style="color: var(--primary)"></i>
+            Coastal Activity
+          </h2>
+          <div
+            class="grid-form"
+            style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr))"
+          >
+            <select id="actFilterCat">
+              <option value="">All categories</option>
+              <option value="fishing">Fishing Activities</option>
+              <option value="environmental">Environmental Activities</option>
+              <option value="tourism">Tourism & Recreational Activities</option>
+              <option value="maritime">Maritime & Transport Activities</option>
+              <option value="illegal">Illegal or Risky Activities</option>
+            </select>
+            <select id="actFilterType"></select>
+            <input id="actFrom" type="date" />
+            <input id="actTo" type="date" />
+            <button onclick="loadActivity()">
+              <i class="fa-solid fa-filter"></i> Load Activity
+            </button>
+            <button onclick="loadInsights()">
+              <i class="fa-solid fa-chart-pie"></i> Insights
+            </button>
+          </div>
+          <table id="activityLogs"></table>
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/js/admin.js"></script>
+  </body>
+</html>

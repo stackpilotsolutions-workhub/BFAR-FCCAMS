@@ -1,0 +1,1651 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0f4c81" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: *; img-src 'self' data: blob: *;"
+    />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <title>Fish Catch and Coastal Activity Logger</title>
+    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- FontAwesome & Leaflet CDN -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Custom Tailwind Configuration for Deep Ocean Theme & Custom Utilities -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ocean: {
+                DEFAULT: "#0077b6",
+                hover: "#0096c7",
+                dark: "#0f4c81",
+                active: "#00b4d8",
+                light: "#48cae4",
+                bg: "#eaf7ff",
+                surface: "#ffffff",
+                text: "#023047",
+                muted: "#4f5d75",
+                border: "#d6eaf8",
+              },
+              status: {
+                success: "#06d6a0",
+                warning: "#ffb703",
+                error: "#ef476f",
+              },
+            },
+            boxShadow: {
+              card: "0 8px 24px rgba(2, 48, 71, 0.08)",
+              soft: "0 2px 6px rgba(2, 48, 71, 0.05)",
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      /* Collapsible Open Dynamics */
+      .collapsible-content {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        transition:
+          max-height 0.3s ease,
+          opacity 0.3s ease;
+      }
+      .collapsible.open .collapsible-content {
+        max-height: 1000px;
+        opacity: 1;
+      }
+      .collapsible.open .chev {
+        transform: rotate(90deg);
+        color: #0077b6;
+      }
+    </style>
+  </head>
+
+  <body
+    class="bg-ocean-bg text-ocean-text min-h-screen antialiased flex flex-col"
+  >
+    <!-- TOPBAR HEADER -->
+    <header
+      class="sticky top-0 z-40 flex items-center justify-between gap-2 sm:gap-4 bg-white/95 backdrop-blur-md px-3 sm:px-6 py-3 border-b border-ocean-border shadow-soft min-h-[64px]"
+    >
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <button
+          id="mobile_menu_btn"
+          onclick="toggleDrawer(true)"
+          class="lg:hidden text-ocean-text hover:text-ocean-hover p-1 text-xl"
+          aria-label="Open sidebar"
+        >
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <img
+          src="/logo.png"
+          alt="FishMonitor Logo"
+          class="h-8 w-8 sm:h-9 sm:w-9 object-contain"
+        />
+        <!-- Hide subtitle/brand text on tiny screens, show on small screens and up -->
+        <span
+          class="hidden xs:inline-block text-base sm:text-lg font-bold text-ocean-text truncate max-w-[130px] sm:max-w-none"
+        >
+          BFAR Monitoring
+        </span>
+      </div>
+
+      <div id="user_info" class="ml-auto flex items-center gap-2 sm:gap-4">
+        <!-- User name & role: shown on tablet/desktop, icon-only toggle on mobile if needed -->
+        <div
+          id="user_profile"
+          class="hidden md:flex flex-col text-right leading-tight"
+        >
+          <div
+            id="user_name"
+            class="text-xs sm:text-sm font-semibold text-ocean-text truncate max-w-[120px] sm:max-w-none"
+          ></div>
+          <div
+            id="user_role"
+            class="text-[10px] font-bold uppercase tracking-wider text-ocean-muted mt-0.5"
+          ></div>
+        </div>
+
+        <!-- Responsive Logout Button: Icon-only on mobile, full button on sm+ -->
+        <button
+          id="logout_btn"
+          onclick="logout()"
+          class="hidden border border-status-error text-status-error hover:bg-status-error/10 font-semibold p-2 sm:px-4 sm:py-1.5 rounded-xl text-xs sm:text-sm transition-all flex items-center justify-center gap-2 min-h-[38px] min-w-[38px]"
+          aria-label="Logout"
+        >
+          <i class="fa-solid fa-right-from-bracket text-sm sm:text-base"></i>
+          <span class="hidden sm:inline">Logout</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN APP WRAPPER -->
+    <div
+      class="container-fluid w-full mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 items-start flex-1"
+      id="app"
+    >
+      <!-- MOBILE DRAWER OVERLAY -->
+      <div
+        id="drawer_overlay"
+        onclick="toggleDrawer(false)"
+        class="fixed inset-0 bg-ocean-text/50 backdrop-blur-sm z-50 hidden lg:hidden transition-opacity"
+      ></div>
+
+      <!-- NAVIGATION SIDEBAR -->
+      <aside
+        id="sidebar"
+        class="fixed lg:sticky top-0 lg:top-24 left-0 h-full lg:h-auto w-72 lg:w-full bg-ocean-dark z-50 lg:z-10 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out p-4 lg:p-0 lg:bg-transparent"
+        role="navigation"
+        aria-label="Main menu"
+      >
+        <div
+          class="bg-ocean-dark rounded-2xl p-4 shadow-card flex flex-col gap-1.5"
+        >
+          <button
+            data-module="dashboard"
+            onclick="showModule('dashboard')"
+            class="nav-btn active flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white bg-ocean-active shadow-soft transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-house w-5 text-center"></i> Dashboard
+          </button>
+          <button
+            data-module="tracking"
+            onclick="showModule('tracking')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-map-location-dot w-5 text-center"></i> GPS
+            Tracking
+          </button>
+          <button
+            data-module="vessels"
+            onclick="showModule('vessels')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-ship w-5 text-center"></i> Vessel Information
+          </button>
+          <button
+            data-module="catch"
+            onclick="showModule('catch')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-fish w-5 text-center"></i> Log Catch
+          </button>
+          <button
+            data-module="my_catches"
+            onclick="showModule('my_catches')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-clipboard-list w-5 text-center"></i> Catches
+          </button>
+          <button
+            data-module="activity"
+            onclick="showModule('activity')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-water w-5 text-center"></i> Coastal Activity
+          </button>
+          <button
+            data-module="reports"
+            onclick="showModule('reports')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-chart-pie w-5 text-center"></i> Reports
+          </button>
+          <button
+            data-module="ai_assistant"
+            onclick="showModule('ai_assistant')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-robot w-5 text-center"></i> BFAR AI Assistant
+          </button>
+          <button
+            data-module="recommendations"
+            onclick="showModule('recommendations')"
+            class="nav-btn flex items-center gap-3 w-full text-left px-4 py-3 rounded-xl font-medium text-white/80 hover:bg-white/10 hover:text-white transition-all min-h-[44px]"
+          >
+            <i class="fa-solid fa-lightbulb w-5 text-center"></i>
+            Recommendations
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT AREA -->
+      <main id="content" class="min-w-0 w-full">
+        <!-- TOP CONTROLS -->
+        <div id="content_top" class="flex justify-end gap-3 mb-5 flex-wrap">
+          <button
+            id="refresh_btn"
+            onclick="refreshDataUser()"
+            class="flex items-center gap-2 bg-white text-ocean-text border border-ocean-border rounded-full px-4 py-2 text-xs font-medium shadow-soft hover:border-ocean-DEFAULT min-h-[40px]"
+          >
+            <i class="fa-solid fa-rotate-right"></i> Refresh
+          </button>
+          <button
+            id="install_btn"
+            onclick="installApp()"
+            class="flex items-center gap-2 bg-ocean-dark text-white rounded-full px-4 py-2 text-xs font-medium shadow-soft hover:bg-ocean-hover min-h-[40px]"
+          >
+            <i class="fa-solid fa-download"></i> Install App
+          </button>
+        </div>
+
+        <!-- DASHBOARD MODULE -->
+        <section id="dashboard" class="space-y-4 sm:space-y-6">
+          <!-- FILTER BAR -->
+          <div
+            class="bg-white border border-ocean-border rounded-xl sm:rounded-2xl p-4 shadow-soft flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4"
+          >
+            <!-- Inline Form Controls (Single row on md+) -->
+            <div
+              class="flex flex-col md:flex-row md:items-center gap-3 flex-1 min-w-0"
+            >
+              <!-- 1. Label -->
+              <label
+                for="filter_type"
+                class="font-semibold text-xs sm:text-sm text-ocean-text whitespace-nowrap shrink-0"
+              >
+                Filter Range:
+              </label>
+
+              <!-- Inputs Container (Equal 50/50 Width Distribution) -->
+              <div
+                class="flex flex-col sm:flex-row items-center gap-3 flex-1 min-w-0"
+              >
+                <!-- 2. First Input (Select) - Equal Width -->
+                <select
+                  id="filter_type"
+                  onchange="handleFilterTypeChange()"
+                  class="w-full flex-1 bg-white border border-ocean-border rounded-lg sm:rounded-xl px-3 py-2 text-xs sm:text-sm text-ocean-text focus:outline-none focus:ring-2 focus:ring-ocean-hover min-w-0"
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly" selected>Monthly</option>
+                </select>
+
+                <!-- 3. Second Input (Date/Month Picker) - Equal Width -->
+                <div id="filter_value_container" class="w-full flex-1 min-w-0">
+                  <input
+                    type="month"
+                    id="filter_value"
+                    onchange="refreshDashboard()"
+                    class="w-full bg-white border border-ocean-border rounded-lg sm:rounded-xl px-3 py-2 text-xs sm:text-sm text-ocean-text focus:outline-none focus:ring-2 focus:ring-ocean-hover min-w-0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. Reset Button -->
+            <button
+              onclick="resetDashboardFilter()"
+              class="w-full md:w-auto border border-ocean-DEFAULT bg-ocean-dark text-white hover:bg-ocean-DEFAULT hover:text-white px-4 py-2 rounded-lg sm:rounded-xl text-xs font-semibold transition-all min-h-[40px] flex items-center justify-center shrink-0 whitespace-nowrap"
+            >
+              Reset to Current
+            </button>
+          </div>
+
+          <!-- STAT CARDS -->
+          <div class="grid grid-cols-2 gap-3 sm:gap-4">
+            <div
+              class="bg-white border border-ocean-border rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-soft flex flex-col xs:flex-row items-start xs:items-center gap-2 sm:gap-4"
+            >
+              <div
+                class="bg-ocean-bg p-2.5 sm:p-3.5 rounded-lg sm:rounded-xl text-ocean-DEFAULT flex items-center justify-center shrink-0"
+              >
+                <i class="fa-solid fa-weight-hanging text-base sm:text-xl"></i>
+              </div>
+              <div class="min-w-0">
+                <div
+                  class="text-[11px] sm:text-xs text-ocean-muted font-medium truncate"
+                >
+                  Total Catch
+                </div>
+                <div
+                  id="stat_catch_today"
+                  class="text-lg sm:text-2xl font-extrabold text-ocean-text truncate"
+                >
+                  0.0 kg
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="bg-white border border-ocean-border rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-soft flex flex-col xs:flex-row items-start xs:items-center gap-2 sm:gap-4"
+            >
+              <div
+                class="bg-status-warning/15 p-2.5 sm:p-3.5 rounded-lg sm:rounded-xl text-amber-600 flex items-center justify-center shrink-0"
+              >
+                <i class="fa-solid fa-water text-base sm:text-xl"></i>
+              </div>
+              <div class="min-w-0">
+                <div
+                  class="text-[11px] sm:text-xs text-ocean-muted font-medium truncate"
+                >
+                  Activities
+                </div>
+                <div
+                  id="stat_activities_week"
+                  class="text-lg sm:text-2xl font-extrabold text-ocean-text truncate"
+                >
+                  0
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CHARTS & TOP SPECIES -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div
+              class="bg-white border border-ocean-border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-soft"
+            >
+              <h2
+                id="chart_heading"
+                class="text-base sm:text-lg font-bold border-b border-ocean-border pb-2.5 sm:pb-3 mb-3 sm:mb-4 flex items-center gap-2"
+              >
+                <i
+                  class="fa-solid fa-chart-line text-ocean-DEFAULT text-sm sm:text-base"
+                ></i>
+                Catch Trend
+              </h2>
+              <div class="h-48 sm:h-64 relative w-full">
+                <canvas id="catchChart"></canvas>
+              </div>
+            </div>
+
+            <div
+              class="bg-white border border-ocean-border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-soft"
+            >
+              <h2
+                class="text-base sm:text-lg font-bold border-b border-ocean-border pb-2.5 sm:pb-3 mb-3 sm:mb-4 flex items-center gap-2"
+              >
+                <i
+                  class="fa-solid fa-trophy text-status-warning text-sm sm:text-base"
+                ></i>
+                Top Species
+              </h2>
+              <div
+                id="top_species_list"
+                class="flex flex-col gap-2.5 sm:gap-3"
+              ></div>
+            </div>
+          </div>
+
+          <!-- LIVE MAP -->
+          <div
+            class="bg-white border border-ocean-border rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-soft"
+          >
+            <h2
+              class="text-base sm:text-lg font-bold border-b border-ocean-border pb-2.5 sm:pb-3 mb-3 sm:mb-4 flex items-center gap-2"
+            >
+              <i
+                class="fa-solid fa-map text-status-success text-sm sm:text-base"
+              ></i>
+              Live Vessel Map
+            </h2>
+            <div
+              id="dashboard_map"
+              class="w-full h-56 sm:h-80 rounded-lg sm:rounded-xl border border-ocean-border z-0"
+            ></div>
+          </div>
+        </section>
+
+        <!-- REPORTS MODULE -->
+        <section
+          id="reports"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft"
+          style="display: none"
+        >
+          <h2
+            class="text-lg font-bold border-b border-ocean-border pb-3 mb-6 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-chart-pie text-ocean-DEFAULT"></i> Reports &
+            Insights
+          </h2>
+          <div class="bg-ocean-bg p-8 rounded-xl text-center">
+            <i
+              class="fa-solid fa-file-invoice text-5xl text-ocean-muted mb-4 inline-block"
+            ></i>
+            <p class="text-ocean-text font-medium mb-4">
+              Your fishing activity reports will appear here. Section currently
+              under development.
+            </p>
+            <button
+              onclick="showModule('dashboard')"
+              class="bg-ocean-DEFAULT hover:bg-ocean-hover text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-all shadow-soft"
+            >
+              Back to Dashboard
+            </button>
+          </div>
+        </section>
+
+        <!-- GPS TRACKING MODULE -->
+        <section
+          id="tracking"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-5"
+          style="display: none"
+        >
+          <h2
+            class="text-lg font-bold border-b border-ocean-border pb-3 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-map-location-dot text-ocean-DEFAULT"></i> GPS
+            Tracking
+          </h2>
+
+          <div
+            class="flex items-center gap-3 p-4 bg-ocean-bg rounded-xl border border-ocean-border text-ocean-DEFAULT"
+          >
+            <i class="fa-solid fa-location-crosshairs text-xl"></i>
+            <div>
+              <div class="text-xs font-medium text-ocean-DEFAULT/80">
+                Current Coordinates
+              </div>
+              <div id="cur_coords" class="font-bold text-base text-ocean-text">
+                -
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              id="btn_start_tracking"
+              onclick="startTracking()"
+              class="bg-status-success text-white font-bold p-3.5 rounded-xl hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1.5 min-h-[56px]"
+            >
+              <i class="fa-solid fa-play text-lg"></i> Start Tracking
+            </button>
+            <button
+              id="btn_stop_tracking"
+              onclick="stopTracking()"
+              disabled
+              class="bg-status-error text-white font-bold p-3.5 rounded-xl opacity-50 cursor-not-allowed hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1.5 min-h-[56px]"
+            >
+              <i class="fa-solid fa-stop text-lg"></i> Stop Tracking
+            </button>
+          </div>
+
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-ocean-bg p-4 rounded-xl border border-ocean-border"
+          >
+            <div>
+              <label class="text-xs text-ocean-muted font-medium mb-1 block"
+                ><i class="fa-solid fa-user"></i> Status</label
+              >
+              <div
+                id="status_display"
+                class="flex items-center gap-2 px-3 py-2 bg-white border border-ocean-border rounded-lg font-semibold text-sm"
+              >
+                <span
+                  id="status_indicator"
+                  class="w-2.5 h-2.5 rounded-full bg-status-success"
+                ></span>
+                <span id="status_text">Active</span>
+              </div>
+            </div>
+            <div>
+              <label class="text-xs text-ocean-muted font-medium mb-1 block"
+                ><i class="fa-solid fa-clock"></i> Last Change</label
+              >
+              <div
+                id="status_when"
+                class="text-xs px-3 py-2 border border-ocean-border rounded-lg bg-white min-h-[38px] flex items-center"
+              >
+                -
+              </div>
+            </div>
+          </div>
+
+          <div class="border border-ocean-border rounded-xl p-4 collapsible">
+            <div
+              class="flex items-center justify-between cursor-pointer select-none"
+              onclick="this.parentElement.classList.toggle('open')"
+            >
+              <span
+                class="text-xs font-bold text-ocean-text flex items-center gap-2"
+                ><i class="fa-solid fa-sliders"></i> Tracking Settings</span
+              >
+              <span class="chev text-xs text-ocean-muted transition-transform"
+                ><i class="fa-solid fa-chevron-right"></i
+              ></span>
+            </div>
+            <div class="collapsible-content pt-3">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label class="text-xs text-ocean-muted font-medium mb-1 block"
+                    ><i class="fa-solid fa-ruler"></i> Min distance (m)</label
+                  >
+                  <input
+                    id="min_dist"
+                    type="number"
+                    value="15"
+                    class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs text-ocean-muted font-medium mb-1 block"
+                    ><i class="fa-solid fa-clock"></i> Min interval (s)</label
+                  >
+                  <input
+                    id="min_int"
+                    type="number"
+                    value="10"
+                    class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="track_msg"
+            class="text-xs text-center text-ocean-muted min-h-[20px]"
+          ></div>
+          <div
+            id="track_map_status"
+            class="text-xs text-center text-ocean-muted min-h-[18px]"
+          ></div>
+          <div
+            id="track_map"
+            class="w-full h-80 rounded-xl border border-ocean-border z-0"
+          ></div>
+
+          <div class="pt-4 border-t border-ocean-border space-y-3">
+            <div
+              class="text-xs bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-800 flex gap-2.5 items-start"
+            >
+              <i
+                class="fa-solid fa-triangle-exclamation mt-0.5 text-amber-600"
+              ></i>
+              <span
+                >This app uses approximate location (network/IP) if GPS is
+                unavailable. Results may vary.</span
+              >
+            </div>
+            <button
+              onclick="useApproxLocation()"
+              class="w-full bg-white text-ocean-DEFAULT border border-ocean-DEFAULT hover:bg-ocean-bg font-semibold py-2.5 rounded-xl text-sm transition-all shadow-soft flex items-center justify-center gap-2"
+            >
+              <i class="fa-solid fa-globe"></i> Force Approximate Location
+            </button>
+          </div>
+        </section>
+
+        <!-- LOG CATCH MODULE -->
+        <section
+          id="catch"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-6"
+          style="display: none"
+        >
+          <h2
+            class="text-lg font-bold border-b border-ocean-border pb-3 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-fish text-ocean-DEFAULT"></i> Log Catch
+          </h2>
+
+          <!-- DETAILS -->
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Catch Details
+            </h3>
+            <div
+              class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-ocean-bg p-4 rounded-xl border border-ocean-border"
+            >
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-fish-fins"></i> Species</label
+                >
+                <input
+                  id="species"
+                  list="speciesList"
+                  placeholder="Search/Select..."
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+                <datalist id="speciesList"></datalist>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-weight-hanging"></i> Weight (kg)</label
+                >
+                <input
+                  id="weight"
+                  placeholder="0.00"
+                  type="number"
+                  step="0.01"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-ruler-horizontal"></i> Length
+                  (cm)</label
+                >
+                <input
+                  id="length"
+                  placeholder="0.0"
+                  type="number"
+                  step="0.1"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- METHOD & NET -->
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Method & Net
+            </h3>
+            <div
+              class="space-y-4 bg-ocean-bg p-4 rounded-xl border border-ocean-border"
+            >
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-network-wired"></i> Net Type</label
+                >
+                <input
+                  id="netType"
+                  list="netTypeList"
+                  placeholder="Search/Select net type..."
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+                <datalist id="netTypeList">
+                  <option value="Pangangawil (Gill Net)"></option>
+                  <option value="Sapyaw"></option>
+                  <option value="Sigay"></option>
+                  <option value="Liting"></option>
+                  <option value="Sirut"></option>
+                  <option value="Pannariway"></option>
+                  <option value="Lambat Lihit (Fine Mesh Net)"></option>
+                  <option value="Pukot / Beach Seine"></option>
+                  <option value="Sinsoro / Push Net"></option>
+                  <option value="Trawl Net"></option>
+                  <option value="Bagnet / Lift Net"></option>
+                  <option value="Handline (Pangawil)"></option>
+                  <option value="Longline (Palundag/Pandos)"></option>
+                  <option value="Trolling Line"></option>
+                  <option value="Bubo (Fish Trap)"></option>
+                  <option value="Baklad (Fish Corrals)"></option>
+                  <option value="Fyke Net"></option>
+                  <option value="Fish Pot"></option>
+                </datalist>
+              </div>
+              <div class="relative">
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-ship"></i> Registered Vessel</label
+                >
+                <input
+                  type="text"
+                  id="catch_vessel_name"
+                  placeholder="Search or select vessel..."
+                  oninput="handleVesselSearch()"
+                  onfocus="handleVesselSearch()"
+                  autocomplete="off"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+                <input type="hidden" id="catch_vessel_id" />
+                <div
+                  id="vesselDropdown"
+                  class="hidden absolute top-full left-0 right-0 bg-white border border-ocean-border rounded-xl max-h-48 overflow-y-auto z-20 shadow-card mt-1"
+                ></div>
+              </div>
+              <div
+                id="catch_vessel_summary"
+                class="text-xs p-3 border border-ocean-border rounded-xl bg-white min-h-[40px] flex items-center text-ocean-muted flex-wrap gap-2"
+              >
+                Select a registered vessel to link this catch.
+              </div>
+            </div>
+          </div>
+
+          <!-- EFFORT -->
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Fishing Effort
+            </h3>
+            <div
+              class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-ocean-bg p-4 rounded-xl border border-ocean-border"
+            >
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-clock"></i> Hours Fished</label
+                >
+                <input
+                  id="hours_fished"
+                  placeholder="e.g., 4.5"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-anchor"></i> Hooks/Panels</label
+                >
+                <input
+                  id="num_hooks_panels"
+                  placeholder="e.g., 500"
+                  type="number"
+                  step="1"
+                  min="0"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-arrows-rotate"></i> Hauls</label
+                >
+                <input
+                  id="num_hauls"
+                  placeholder="e.g., 3"
+                  type="number"
+                  step="1"
+                  min="0"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- EVIDENCE -->
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Evidence
+            </h3>
+            <div
+              class="bg-ocean-bg p-6 rounded-xl border-2 border-dashed border-ocean-border text-center cursor-pointer hover:border-ocean-DEFAULT transition-all"
+              onclick="document.getElementById('photoFile').click()"
+            >
+              <i
+                class="fa-solid fa-camera text-2xl text-ocean-DEFAULT mb-2"
+              ></i>
+              <div class="text-sm font-semibold text-ocean-text">
+                Take or Upload Photo
+              </div>
+              <div class="text-[11px] text-ocean-muted">
+                EXIF Location supported
+              </div>
+              <input
+                id="photoFile"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                class="hidden"
+                onchange="
+                  if (this.files.length) {
+                    this.parentElement.style.borderColor = '#06d6a0';
+                    this.parentElement.style.background = '#f0fdf4';
+                  }
+                "
+              />
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 mt-3">
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-link"></i> Photo URL (Optional)</label
+                >
+                <input
+                  id="photoUrl"
+                  placeholder="https://..."
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-note-sticky"></i> Notes</label
+                >
+                <input
+                  id="note"
+                  placeholder="Additional details..."
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- LOCATION & SUBMIT -->
+          <div class="space-y-3">
+            <div class="flex justify-between items-center gap-2">
+              <div
+                class="text-xs font-semibold text-ocean-DEFAULT flex items-center gap-1.5"
+              >
+                <i class="fa-solid fa-location-dot"></i>
+                <span id="catch_coords_text">Waiting for signal...</span>
+              </div>
+              <button
+                onclick="resetCatchLocation()"
+                class="px-3 py-1 text-xs bg-white text-ocean-DEFAULT border border-ocean-border rounded-full hover:bg-ocean-bg"
+              >
+                <i class="fa-solid fa-crosshairs"></i> Current GPS
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                id="btn_submit_catch"
+                onclick="logCatch()"
+                disabled
+                class="bg-ocean-DEFAULT text-white font-bold py-3 px-4 rounded-xl opacity-50 cursor-not-allowed hover:bg-ocean-hover transition-all flex flex-col items-center justify-center gap-1 min-h-[48px]"
+              >
+                <i class="fa-solid fa-paper-plane text-base"></i> Submit Catch
+              </button>
+              <button
+                id="btn_upload_catch"
+                onclick="uploadCatch()"
+                disabled
+                class="bg-white text-ocean-DEFAULT border border-ocean-border font-bold py-3 px-4 rounded-xl opacity-50 cursor-not-allowed hover:bg-ocean-bg transition-all flex flex-col items-center justify-center gap-1 min-h-[48px]"
+              >
+                <i class="fa-solid fa-cloud-arrow-up text-base"></i> Upload +
+                EXIF
+              </button>
+            </div>
+
+            <button
+              id="btn_analyze_catch_ai"
+              type="button"
+              onclick="analyzeCatchWithAI()"
+              class="w-full py-3 px-4 border-2 border-dashed border-ocean-DEFAULT bg-ocean-bg text-ocean-DEFAULT font-bold rounded-xl hover:bg-white transition-all flex justify-center items-center gap-2"
+            >
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Catch with
+              BFAR AI
+            </button>
+            <div
+              id="catch_ai_result"
+              class="hidden mt-3 p-4 border border-ocean-border rounded-xl bg-white text-sm"
+            ></div>
+          </div>
+          <div id="catch_msg" class="text-xs text-center text-ocean-muted">
+            Waiting for location signal...
+          </div>
+        </section>
+
+        <!-- VESSELS MODULE -->
+        <section
+          id="vessels"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-6"
+          style="display: none"
+        >
+          <div
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ocean-border pb-3"
+          >
+            <h2 class="text-lg font-bold flex items-center gap-2">
+              <i class="fa-solid fa-ship text-ocean-DEFAULT"></i> Vessel
+              Information
+            </h2>
+            <button
+              onclick="resetVesselForm()"
+              class="bg-ocean-DEFAULT hover:bg-ocean-hover text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all shadow-soft self-start sm:self-auto min-h-[38px]"
+            >
+              <i class="fa-solid fa-plus"></i> New Vessel
+            </button>
+          </div>
+
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-ocean-bg p-4 rounded-xl border border-ocean-border"
+          >
+            <div>
+              <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                ><i class="fa-solid fa-id-card"></i> Reg. No.</label
+              >
+              <input
+                id="vessel_registration_number"
+                placeholder="e.g., VSL-001"
+                class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                ><i class="fa-solid fa-tag"></i> Vessel Name</label
+              >
+              <input
+                id="vessel_name_input"
+                placeholder="e.g., F/B Rocel"
+                class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                ><i class="fa-solid fa-gears"></i> Engine</label
+              >
+              <input
+                id="vessel_engine"
+                placeholder="e.g., 16HP"
+                class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+              />
+            </div>
+            <div>
+              <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                ><i class="fa-solid fa-user"></i> Owner</label
+              >
+              <input
+                id="vessel_owner_name"
+                placeholder="e.g., Juan Dela Cruz"
+                class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+              />
+            </div>
+            <div class="sm:col-span-2 lg:col-span-1">
+              <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                ><i class="fa-solid fa-location-dot"></i> Barangay</label
+              >
+              <select
+                id="vessel_barangay"
+                class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+              >
+                <option value="">Select Barangay</option>
+                <option>Amunitan</option>
+                <option>Batangan</option>
+                <option>Baua</option>
+                <option>Cabanbanan Norte</option>
+                <option>Cabanbanan Sur</option>
+                <option>Cabiraoan</option>
+                <option>Callao</option>
+                <option>Calayan</option>
+                <option>Caroan</option>
+                <option>Casitan</option>
+                <option>Flourishing (Poblacion)</option>
+                <option>Ipil</option>
+                <option>Magrafil</option>
+                <option>Minanga</option>
+                <option>Rebecca (Nagbabacalan)</option>
+                <option>Paradise (Poblacion)</option>
+                <option>Pateng</option>
+                <option>Progressive (Poblacion)</option>
+                <option>San Jose</option>
+                <option>Santa Clara</option>
+                <option>Santa Cruz</option>
+                <option>Santa Maria</option>
+                <option>Smart (Poblacion)</option>
+                <option>Tapel</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button
+              onclick="saveVessel()"
+              class="bg-ocean-DEFAULT hover:bg-ocean-hover text-white font-semibold px-5 py-2 rounded-xl text-xs transition-all shadow-soft min-h-[38px]"
+            >
+              <i class="fa-solid fa-floppy-disk"></i> Save Vessel
+            </button>
+            <button
+              id="vessel_cancel_btn"
+              onclick="resetVesselForm()"
+              class="hidden bg-white text-ocean-text border border-ocean-border font-semibold px-5 py-2 rounded-xl text-xs transition-all min-h-[38px]"
+            >
+              <i class="fa-solid fa-xmark"></i> Cancel Edit
+            </button>
+            <button
+              onclick="loadVessels()"
+              class="bg-white text-ocean-DEFAULT border border-ocean-DEFAULT font-semibold px-5 py-2 rounded-xl text-xs transition-all min-h-[38px]"
+            >
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+          <div
+            id="vessel_form_msg"
+            class="text-xs text-ocean-muted min-h-[18px]"
+          ></div>
+
+          <div class="space-y-3 pt-2">
+            <div
+              class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+            >
+              <h3 class="text-sm font-bold text-ocean-text">
+                Registered Vessels
+              </h3>
+              <div class="flex items-center gap-3 w-full sm:w-auto">
+                <div
+                  class="text-xs text-ocean-muted whitespace-nowrap"
+                  id="vessel_list_count"
+                >
+                  0 vessels
+                </div>
+                <div class="relative w-full sm:w-64">
+                  <i
+                    class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-ocean-muted text-xs"
+                  ></i>
+                  <input
+                    id="user_vessel_search"
+                    placeholder="Search..."
+                    oninput="filterUserVessels()"
+                    class="w-full bg-ocean-bg border border-ocean-border pl-8 pr-3 py-1.5 text-xs rounded-full focus:outline-none focus:ring-2 focus:ring-ocean-hover"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="w-full overflow-x-auto rounded-xl border border-ocean-border"
+            >
+              <table
+                id="user_vessels_table"
+                class="w-full text-left text-xs text-ocean-text"
+              ></table>
+            </div>
+          </div>
+        </section>
+
+        <!-- AI ASSISTANT MODULE -->
+        <section
+          id="ai_assistant"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-6"
+          style="display: none"
+        >
+          <div
+            class="flex items-center justify-between gap-3 border-b border-ocean-border pb-3"
+          >
+            <h2 class="text-lg font-bold flex items-center gap-2">
+              <i class="fa-solid fa-robot text-ocean-DEFAULT"></i> BFAR AI
+              Assistant
+            </h2>
+            <span
+              class="text-xs bg-ocean-bg text-ocean-DEFAULT px-3 py-1 rounded-full border border-ocean-border font-medium"
+              >Vercel AI SDK</span
+            >
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- CHAT PANEL -->
+            <div
+              class="lg:col-span-7 flex flex-col bg-ocean-bg border border-ocean-border rounded-2xl p-4 min-h-[460px]"
+            >
+              <div
+                class="flex items-center justify-between pb-3 border-b border-ocean-border mb-3"
+              >
+                <h3
+                  class="text-xs font-bold uppercase text-ocean-muted tracking-wider flex items-center gap-2"
+                >
+                  <i class="fa-solid fa-comments text-ocean-DEFAULT"></i> Chat
+                </h3>
+                <button
+                  type="button"
+                  onclick="clearAIChat()"
+                  class="text-xs text-ocean-muted hover:text-ocean-text border border-ocean-border bg-white rounded-full px-3 py-0.5"
+                >
+                  Clear
+                </button>
+              </div>
+
+              <div
+                id="ai_chat_messages"
+                class="flex-1 overflow-y-auto space-y-3 p-1 min-h-[220px]"
+              >
+                <div
+                  class="self-start max-w-[90%] bg-white text-ocean-text p-3.5 rounded-2xl rounded-tl-sm border border-ocean-border text-xs leading-relaxed shadow-soft"
+                >
+                  👋 Hi! Ask me about <b>Philippine fisheries law</b> (RA 8550 /
+                  RA 10654), reporting deadlines, protected species, or vessel
+                  regulations.
+                </div>
+              </div>
+
+              <div
+                class="flex items-end gap-2 mt-3 pt-3 border-t border-ocean-border"
+              >
+                <textarea
+                  id="ai_chat_input"
+                  rows="2"
+                  placeholder="Ask a question..."
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text focus:outline-none focus:ring-2 focus:ring-ocean-hover resize-none min-h-[44px]"
+                  onkeydown="
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      sendAIChat();
+                    }
+                  "
+                ></textarea>
+                <button
+                  id="ai_chat_send"
+                  onclick="sendAIChat()"
+                  class="h-[44px] px-4 bg-ocean-DEFAULT text-white font-bold rounded-xl hover:bg-ocean-hover transition-all shrink-0 flex items-center justify-center"
+                >
+                  <i class="fa-solid fa-paper-plane"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- QUICK ANALYSIS PANEL -->
+            <div class="lg:col-span-5 space-y-4">
+              <div
+                class="bg-ocean-bg border border-ocean-border rounded-2xl p-4"
+              >
+                <h3
+                  class="text-xs font-bold uppercase text-ocean-muted tracking-wider mb-3 flex items-center gap-2"
+                >
+                  <i
+                    class="fa-solid fa-wand-magic-sparkles text-status-success"
+                  ></i>
+                  Quick Analysis
+                </h3>
+                <div class="space-y-3">
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      ><i class="fa-solid fa-fish-fins"></i> Species</label
+                    >
+                    <input
+                      id="ai_quick_species"
+                      placeholder="e.g., Yellowfin Tuna"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      ><i class="fa-solid fa-weight-hanging"></i> Weight
+                      (kg)</label
+                    >
+                    <input
+                      id="ai_quick_weight"
+                      type="number"
+                      step="0.01"
+                      placeholder="e.g., 12"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      ><i class="fa-solid fa-location-dot"></i> Location</label
+                    >
+                    <input
+                      id="ai_quick_location"
+                      placeholder="e.g., Coastal Waters"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      ><i class="fa-solid fa-calendar"></i> Captured</label
+                    >
+                    <input
+                      id="ai_quick_captured"
+                      type="datetime-local"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      ><i class="fa-solid fa-note-sticky"></i> Notes</label
+                    >
+                    <input
+                      id="ai_quick_notes"
+                      placeholder="Net type, vessel..."
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  id="ai_quick_btn"
+                  onclick="quickCatchAnalysis()"
+                  class="w-full mt-4 py-2.5 bg-ocean-DEFAULT hover:bg-ocean-hover text-white font-bold rounded-xl text-xs transition-all shadow-soft"
+                >
+                  <i class="fa-solid fa-bolt"></i> Run Analysis
+                </button>
+                <div
+                  id="ai_quick_result"
+                  class="hidden mt-3 p-3 rounded-xl border border-ocean-border bg-white text-xs"
+                ></div>
+              </div>
+
+              <div class="bg-ocean-dark text-white rounded-2xl p-4 space-y-2">
+                <h3
+                  class="text-xs font-extrabold uppercase text-ocean-active tracking-wider flex items-center gap-2"
+                >
+                  <i class="fa-solid fa-lightbulb"></i> Tips
+                </h3>
+                <ul
+                  class="text-xs space-y-1.5 text-white/80 list-disc pl-4 leading-relaxed"
+                >
+                  <li>
+                    Use <b>Analyze Catch with BFAR AI</b> in Log Catch for
+                    auto-population.
+                  </li>
+                  <li>
+                    Configure <code>OPENAI_API_KEY</code> or
+                    <code>ANTHROPIC_API_KEY</code>.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RECOMMENDATIONS MODULE -->
+        <section
+          id="recommendations"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-6"
+          style="display: none"
+        >
+          <div
+            class="flex items-center justify-between gap-3 border-b border-ocean-border pb-3"
+          >
+            <h2 class="text-lg font-bold flex items-center gap-2">
+              <i class="fa-solid fa-lightbulb text-status-warning"></i>
+              Recommendations
+            </h2>
+            <span
+              class="text-xs bg-amber-50 text-amber-800 px-3 py-1 rounded-full border border-amber-200 font-medium"
+              >BFAR RA 8550 Tips</span
+            >
+          </div>
+          <div id="recs_cards_wrap">
+            <div
+              id="recs_cards"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+            ></div>
+          </div>
+          <div
+            id="recs_empty"
+            class="hidden p-8 text-center border border-dashed border-ocean-border rounded-xl text-ocean-muted space-y-2"
+          >
+            <i
+              class="fa-solid fa-check-circle text-4xl text-status-success"
+            ></i>
+            <p class="font-semibold text-ocean-text">
+              All caught up! No recommendations right now.
+            </p>
+          </div>
+        </section>
+
+        <!-- CATCHES LIST MODULE -->
+        <section
+          id="my_catches"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-4"
+          style="display: none"
+        >
+          <h2
+            class="text-lg font-bold border-b border-ocean-border pb-3 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-clipboard-list text-ocean-DEFAULT"></i>
+            Catches
+          </h2>
+
+          <div class="border border-ocean-border rounded-xl p-4 collapsible">
+            <div
+              class="flex items-center justify-between cursor-pointer select-none"
+              onclick="this.parentElement.classList.toggle('open')"
+            >
+              <span
+                class="text-xs font-bold text-ocean-text flex items-center gap-2"
+                ><i class="fa-solid fa-filter"></i> Filter Catches</span
+              >
+              <span class="chev text-xs text-ocean-muted transition-transform"
+                ><i class="fa-solid fa-chevron-right"></i
+              ></span>
+            </div>
+            <div class="collapsible-content pt-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label
+                    class="text-xs font-semibold text-ocean-text mb-1 block"
+                    >Species</label
+                  >
+                  <select
+                    id="filter_species"
+                    onchange="renderMyCatches()"
+                    class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                  >
+                    <option value="">All Species</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-semibold text-ocean-text mb-1 block"
+                    >Date From</label
+                  >
+                  <input
+                    id="filter_date_from"
+                    type="date"
+                    onchange="renderMyCatches()"
+                    class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                  />
+                </div>
+                <div>
+                  <label
+                    class="text-xs font-semibold text-ocean-text mb-1 block"
+                    >Date To</label
+                  >
+                  <input
+                    id="filter_date_to"
+                    type="date"
+                    onchange="renderMyCatches()"
+                    class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="flex items-center justify-between text-xs font-semibold text-ocean-text"
+          >
+            <span id="catches_count">0 catches found</span>
+            <button
+              onclick="loadMyCatches()"
+              class="text-ocean-DEFAULT border border-ocean-DEFAULT hover:bg-ocean-bg px-3 py-1 rounded-lg"
+            >
+              <i class="fa-solid fa-rotate"></i> Refresh
+            </button>
+          </div>
+
+          <ul id="catches_list" class="space-y-3"></ul>
+        </section>
+
+        <!-- COASTAL ACTIVITY MODULE -->
+        <section
+          id="activity"
+          class="bg-white border border-ocean-border rounded-2xl p-6 shadow-soft space-y-6"
+          style="display: none"
+        >
+          <h2
+            class="text-lg font-bold border-b border-ocean-border pb-3 flex items-center gap-2"
+          >
+            <i class="fa-solid fa-water text-ocean-DEFAULT"></i> Coastal
+            Activity
+          </h2>
+
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Activity Details
+            </h3>
+            <div
+              class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-ocean-bg p-4 rounded-xl border border-ocean-border"
+            >
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-list"></i> Category</label
+                >
+                <select
+                  id="act_cat"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                >
+                  <option value="fishing">Fishing Activities</option>
+                  <option value="environmental">
+                    Environmental Activities
+                  </option>
+                  <option value="tourism">
+                    Tourism & Recreational Activities
+                  </option>
+                  <option value="maritime">
+                    Maritime & Transport Activities
+                  </option>
+                  <option value="illegal">Illegal or Risky Activities</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-tag"></i> Activity Type</label
+                >
+                <select
+                  id="act_type"
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                ></select>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-xs font-semibold text-ocean-text mb-1 block"
+                  ><i class="fa-solid fa-note-sticky"></i> Details /
+                  Notes</label
+                >
+                <input
+                  id="act_note"
+                  placeholder="Describe what you see..."
+                  class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-sm text-ocean-text"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Route Tracking
+            </h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center px-2">
+                <span class="text-xs font-semibold text-ocean-text"
+                  >Waypoints Recorded</span
+                >
+                <span
+                  id="route_count"
+                  class="text-xs bg-ocean-bg px-3 py-0.5 rounded-full text-ocean-DEFAULT font-bold border border-ocean-border"
+                  >0</span
+                >
+              </div>
+              <button
+                id="btn_add_waypoint"
+                onclick="addWaypoint()"
+                disabled
+                class="w-full py-2.5 px-4 bg-white border border-ocean-border text-ocean-text font-semibold rounded-xl opacity-50 cursor-not-allowed hover:bg-ocean-bg transition-all flex justify-center items-center gap-2 text-xs"
+              >
+                <i class="fa-solid fa-map-pin"></i> Add Waypoint (Current Loc)
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <h3
+              class="text-xs uppercase font-bold text-ocean-muted tracking-wider mb-3"
+            >
+              Evidence
+            </h3>
+            <div
+              class="bg-ocean-bg p-6 rounded-xl border-2 border-dashed border-ocean-border text-center cursor-pointer hover:border-ocean-DEFAULT transition-all"
+              onclick="document.getElementById('act_photo').click()"
+            >
+              <i
+                class="fa-solid fa-camera text-2xl text-ocean-DEFAULT mb-2"
+              ></i>
+              <div class="text-sm font-semibold text-ocean-text">
+                Attach Photo
+              </div>
+              <input
+                id="act_photo"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                class="hidden"
+                onchange="
+                  if (this.files.length) {
+                    this.parentElement.style.borderColor = '#06d6a0';
+                    this.parentElement.style.background = '#f0fdf4';
+                  }
+                "
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              id="btn_submit_act"
+              onclick="submitActivity()"
+              disabled
+              class="bg-ocean-DEFAULT text-white font-bold py-3 px-4 rounded-xl opacity-50 cursor-not-allowed hover:bg-ocean-hover transition-all flex flex-col items-center justify-center gap-1 min-h-[48px]"
+            >
+              <i class="fa-solid fa-paper-plane text-base"></i> Submit Text Only
+            </button>
+            <button
+              id="btn_submit_act_upload"
+              onclick="submitActivityUpload()"
+              disabled
+              class="bg-white text-ocean-DEFAULT border border-ocean-border font-bold py-3 px-4 rounded-xl opacity-50 cursor-not-allowed hover:bg-ocean-bg transition-all flex flex-col items-center justify-center gap-1 min-h-[48px]"
+            >
+              <i class="fa-solid fa-cloud-arrow-up text-base"></i> Submit with
+              Photo
+            </button>
+          </div>
+          <div id="act_msg" class="text-xs text-center text-ocean-muted">
+            Waiting for location signal...
+          </div>
+
+          <div class="pt-6 border-t border-ocean-border space-y-4">
+            <h3
+              class="text-sm font-bold text-ocean-text flex items-center gap-2"
+            >
+              <i class="fa-solid fa-clock-rotate-left"></i> Recent Activity
+            </h3>
+
+            <div class="border border-ocean-border rounded-xl p-4 collapsible">
+              <div
+                class="flex items-center justify-between cursor-pointer select-none"
+                onclick="this.parentElement.classList.toggle('open')"
+              >
+                <span
+                  class="text-xs font-bold text-ocean-text flex items-center gap-2"
+                  ><i class="fa-solid fa-filter"></i> Filter Activity</span
+                >
+                <span class="chev text-xs text-ocean-muted transition-transform"
+                  ><i class="fa-solid fa-chevron-right"></i
+                ></span>
+              </div>
+              <div class="collapsible-content pt-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      >Category</label
+                    >
+                    <select
+                      id="filter_act_cat"
+                      onchange="renderMyActivity()"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    >
+                      <option value="">All Categories</option>
+                      <option value="fishing">Fishing</option>
+                      <option value="environmental">Environmental</option>
+                      <option value="tourism">Tourism</option>
+                      <option value="maritime">Maritime</option>
+                      <option value="illegal">Illegal/Risky</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      >Date From</label
+                    >
+                    <input
+                      id="filter_act_date_from"
+                      type="date"
+                      onchange="renderMyActivity()"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      class="text-xs font-semibold text-ocean-text mb-1 block"
+                      >Date To</label
+                    >
+                    <input
+                      id="filter_act_date_to"
+                      type="date"
+                      onchange="renderMyActivity()"
+                      class="w-full bg-white border border-ocean-border rounded-xl px-3 py-2 text-xs text-ocean-text"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="flex items-center justify-between text-xs font-semibold text-ocean-text"
+            >
+              <span id="activity_count">0 records found</span>
+              <button
+                onclick="loadMyActivity()"
+                class="text-ocean-DEFAULT border border-ocean-DEFAULT hover:bg-ocean-bg px-3 py-1 rounded-lg"
+              >
+                <i class="fa-solid fa-rotate"></i> Refresh
+              </button>
+            </div>
+
+            <ul id="activity_list" class="space-y-3"></ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- MAIN APP SCRIPT -->
+    <script src="/assets/js/script.js"></script>
+
+    <!-- UI/UX HELPER SCRIPTS -->
+    <script>
+      function toggleDrawer(open) {
+        const sidebar = document.getElementById("sidebar");
+        const overlay = document.getElementById("drawer_overlay");
+        if (open) {
+          sidebar.classList.remove("-translate-x-full");
+          overlay.classList.remove("hidden");
+        } else {
+          sidebar.classList.add("-translate-x-full");
+          overlay.classList.add("hidden");
+        }
+      }
+
+      // Sync active state class for Tailwind buttons
+      const originalShowModule = window.showModule;
+      if (typeof originalShowModule === "function") {
+        window.showModule = function (mod) {
+          originalShowModule(mod);
+          document.querySelectorAll("#sidebar .nav-btn").forEach((btn) => {
+            if (btn.getAttribute("data-module") === mod) {
+              btn.classList.add("bg-ocean-active", "text-white", "shadow-soft");
+              btn.classList.remove("text-white/80");
+            } else {
+              btn.classList.remove(
+                "bg-ocean-active",
+                "text-white",
+                "shadow-soft",
+              );
+              btn.classList.add("text-white/80");
+            }
+          });
+          // Auto close mobile drawer on section selection
+          toggleDrawer(false);
+        };
+      }
+    </script>
+  </body>
+</html>
