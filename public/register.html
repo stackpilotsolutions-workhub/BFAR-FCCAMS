@@ -1,191 +1,482 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0a84ff" />
+    <meta name="theme-color" content="#0077b6" />
     <title>Register - FishMonitor</title>
-    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="icon" href="/bfar.svg" type="image/svg+xml" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
       :root {
-        --primary: #007aff;
-        --primary-hover: #0056b3;
-        --surface: #ffffff;
-        --background: #f5f5f7;
-        --text-main: #1d1d1f;
-        --text-muted: #86868b;
-        --border: #d2d2d7;
-        --success: #34c759;
-        --error: #ff3b30;
-        --shadow: 0 4px 6px rgba(0,0,0,0.05), 0 10px 15px rgba(0,0,0,0.1);
-        --radius: 16px;
+        --primary: #0077b6; /* Ocean Blue */
+        --primary-hover: #0096c7;
+        --surface: #ffffff; /* Clean Card Surface */
+        --background: #eaf7ff; /* Main Page Background */
+        --text-main: #023047; /* Primary Dark Headings */
+        --text-muted: #4f5d75; /* Secondary Text */
+        --border: #bde0fe; /* Subtle Border */
+        --success: #06d6a0;
+        --error: #ef476f;
+        --shadow: 0 12px 32px rgba(2, 48, 71, 0.08);
+        --radius: 20px;
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --surface: #1c1c1e;
-          --background: #000000;
-          --text-main: #f5f5f7;
-          --text-muted: #86868b;
-          --border: #424245;
-        }
+
+      * {
+        box-sizing: border-box;
       }
+
+      html,
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        height: 100%;
         margin: 0;
-        background-color: var(--background);
-        color: var(--text-main);
+        padding: 0;
+        overflow: hidden; /* Fits viewport without scrolling */
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+
+      body {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 100vh;
-        background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/assets/auth-bg.jpg');
-        background-size: cover;
-        background-position: center;
-        padding: 20px;
-        box-sizing: border-box;
+        background: linear-gradient(135deg, #eaf7ff 0%, #d6eaf8 100%);
+        padding: 16px;
       }
+
+      /* Clean Card Container (Set to 450px) */
       .card {
         background: var(--surface);
         border: 1px solid var(--border);
-        padding: 40px;
-        border-radius: 24px;
+        padding: 32px 32px;
+        border-radius: var(--radius);
         box-shadow: var(--shadow);
         width: 100%;
-        max-width: 480px;
+        max-width: 450px;
         text-align: center;
+        max-height: 96vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
-      .logo { width: 48px; height: 48px; margin-bottom: 12px; }
-      h1 { font-size: 24px; font-weight: 800; margin: 0; color: var(--text-main); }
-      p { color: var(--text-muted); font-size: 14px; margin-top: 8px; margin-bottom: 24px; }
-      
-      .field { text-align: left; margin-bottom: 16px; }
-      label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--text-muted); }
-      input, select {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--surface);
+
+      .logo {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 10px auto;
+        object-fit: contain;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 800;
+        margin: 0;
         color: var(--text-main);
-        font-size: 15px;
-        box-sizing: border-box;
-        font-family: inherit;
+        letter-spacing: -0.02em;
       }
-      input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2); }
-      
-      button {
+
+      p.subtitle {
+        color: var(--text-muted);
+        font-size: 13px;
+        margin-top: 4px;
+        margin-bottom: 20px;
+      }
+
+      .field {
+        text-align: left;
+        margin-bottom: 14px;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text-main);
+      }
+
+      /* High-contrast Inputs */
+      input[type="text"],
+      input[type="email"],
+      input[type="password"] {
         width: 100%;
-        padding: 14px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 16px;
-        transition: background 0.2s;
+        padding: 11px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--text-main) !important;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
       }
-      button:hover { background: var(--primary-hover); }
-      
-      .passwrap { position: relative; }
+
+      input::placeholder {
+        color: #8d99ae;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.15);
+      }
+
+      /* Dynamic Helper Text */
+      .helper-text {
+        font-size: 11px;
+        margin-top: 4px;
+        color: var(--text-muted);
+        min-height: 16px;
+        transition: color 0.2s ease;
+      }
+      .helper-text.valid {
+        color: #059669;
+        font-weight: 600;
+      }
+      .helper-text.invalid {
+        color: var(--error);
+        font-weight: 600;
+      }
+
+      .passwrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .passwrap input {
+        padding-right: 38px;
+      }
+
       .toggle-eye {
         position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
+        right: 10px;
         background: none;
         border: none;
         color: var(--text-muted);
         cursor: pointer;
-        padding: 0;
-        margin: 0;
-        width: auto;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: color 0.2s ease;
       }
-      
-      .msg { font-size: 13px; margin-top: 16px; min-height: 20px; }
-      .msg.error { color: var(--error); }
-      
-      .links { margin-top: 24px; font-size: 14px; }
-      .links a { color: var(--primary); text-decoration: none; font-weight: 600; }
-      .links a:hover { text-decoration: underline; }
+
+      .toggle-eye:hover {
+        color: var(--primary);
+      }
+
+      /* Submit Button & Preloader */
+      button.btn-submit {
+        width: 100%;
+        padding: 12px;
+        background: var(--primary);
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(0, 119, 182, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      button.btn-submit:hover:not(:disabled) {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+      }
+
+      button.btn-submit:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      .spinner {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #ffffff;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Toast Notification Container */
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .toast {
+        min-width: 280px;
+        padding: 14px 18px;
+        border-radius: 12px;
+        background: #ffffff;
+        color: var(--text-main);
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 10px 25px rgba(2, 48, 71, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-left: 5px solid var(--primary);
+        transform: translateX(120%);
+        transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      }
+
+      .toast.show {
+        transform: translateX(0);
+      }
+
+      .toast.success {
+        border-left-color: var(--success);
+      }
+      .toast.success i {
+        color: var(--success);
+      }
+      .toast.error {
+        border-left-color: var(--error);
+      }
+      .toast.error i {
+        color: var(--error);
+      }
+
+      .links {
+        margin-top: 18px;
+        font-size: 13px;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .links a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .links a:hover {
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="card">
-      <img src="/logo.svg" alt="Logo" class="logo" />
+      <img src="/bfar.svg" alt="BFAR Logo" class="logo" />
       <h1>Create Account</h1>
-      <p>Join FishMonitor today</p>
-      
+      <p class="subtitle">Join FishMonitor today</p>
+
       <div class="field">
-        <label>Full Name</label>
-        <input id="name" type="text" />
+        <label for="name">Full Name</label>
+        <input
+          id="name"
+          type="text"
+          placeholder="John Doe"
+          autocomplete="name"
+          oninput="validateName()"
+        />
+        <div id="nameHelper" class="helper-text">
+          Enter your first and last name
+        </div>
       </div>
 
       <div class="field">
-        <label>Email Address</label>
-        <input id="email" type="email" />
-      </div>
-      
-      <div class="field">
-        <label>Password</label>
-        <div class="passwrap">
-          <input id="password" type="password" />
-          <button class="toggle-eye" onclick="togglePassword()">🔒</button>
+        <label for="email">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="name@example.com"
+          autocomplete="email"
+          oninput="validateEmail()"
+        />
+        <div id="emailHelper" class="helper-text">
+          We'll send account updates to this email
         </div>
       </div>
-      
-      <button onclick="register()">Register</button>
-      <div id="msg" class="msg"></div>
-      
+
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="passwrap">
+          <input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="new-password"
+            oninput="validatePassword()"
+          />
+          <button
+            class="toggle-eye"
+            type="button"
+            onclick="togglePassword()"
+            aria-label="Toggle password visibility"
+          >
+            <i id="eye_icon" class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+        <div id="passHelper" class="helper-text">
+          Must be at least 8 characters long
+        </div>
+      </div>
+
+      <button id="submitBtn" class="btn-submit" onclick="register()">
+        <span class="spinner" id="btnSpinner"></span>
+        <span id="btnText">Register</span>
+      </button>
+
       <div class="links">
         Already have an account? <a href="/login.html">Login</a>
       </div>
     </div>
 
     <script>
-      function togglePassword() {
-        const p = document.getElementById('password');
-        const btn = document.querySelector('.toggle-eye');
-        if (p.type === 'password') {
-          p.type = 'text';
-          btn.textContent = '🔓';
+      // Real-time Helper Text Validations
+      function validateName() {
+        const name = document.getElementById("name").value.trim();
+        const helper = document.getElementById("nameHelper");
+        if (!name) {
+          helper.textContent = "Enter your first and last name";
+          helper.className = "helper-text";
+        } else if (name.length < 3) {
+          helper.textContent = "Name must be at least 3 characters";
+          helper.className = "helper-text invalid";
         } else {
-          p.type = 'password';
-          btn.textContent = '🔒';
+          helper.textContent = "Looks good!";
+          helper.className = "helper-text valid";
         }
       }
 
+      function validateEmail() {
+        const email = document.getElementById("email").value.trim();
+        const helper = document.getElementById("emailHelper");
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!email) {
+          helper.textContent = "We'll send account updates to this email";
+          helper.className = "helper-text";
+        } else if (!emailRegex.test(email)) {
+          helper.textContent = "Please enter a valid email address";
+          helper.className = "helper-text invalid";
+        } else {
+          helper.textContent = "Valid email address";
+          helper.className = "helper-text valid";
+        }
+      }
+
+      function validatePassword() {
+        const password = document.getElementById("password").value;
+        const helper = document.getElementById("passHelper");
+
+        if (!password) {
+          helper.textContent = "Must be at least 8 characters long";
+          helper.className = "helper-text";
+        } else if (password.length < 8) {
+          helper.textContent = `Too short (${password.length}/8 characters)`;
+          helper.className = "helper-text invalid";
+        } else {
+          helper.textContent = "Strong password!";
+          helper.className = "helper-text valid";
+        }
+      }
+
+      function togglePassword() {
+        const p = document.getElementById("password");
+        const icon = document.getElementById("eye_icon");
+        if (p.type === "password") {
+          p.type = "text";
+          icon.className = "fa-solid fa-eye-slash";
+        } else {
+          p.type = "password";
+          icon.className = "fa-solid fa-eye";
+        }
+      }
+
+      // Dynamic Toast System
+      function showToast(message, type = "success") {
+        const container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+
+        const icon =
+          type === "success" ? "fa-circle-check" : "fa-circle-exclamation";
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+
+        container.appendChild(toast);
+
+        // Animate slide-in
+        setTimeout(() => toast.classList.add("show"), 10);
+
+        // Auto remove after 3.5 seconds
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 300);
+        }, 3500);
+      }
+
       async function register() {
-        const name = document.getElementById('name').value.trim();
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const msg = document.getElementById('msg');
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
 
         if (!name || !email || !password) {
-          msg.textContent = 'Please fill in all fields.';
-          msg.className = 'msg error';
+          showToast("Please complete all fields correctly.", "error");
           return;
         }
 
-        msg.textContent = 'Creating account...';
-        msg.className = 'msg';
+        if (password.length < 8) {
+          showToast("Password must be at least 8 characters long.", "error");
+          return;
+        }
+
+        // Toggle Loading Preloader
+        const btn = document.getElementById("submitBtn");
+        const spinner = document.getElementById("btnSpinner");
+        const btnText = document.getElementById("btnText");
+
+        btn.disabled = true;
+        spinner.style.display = "inline-block";
+        btnText.textContent = "Creating Account...";
 
         try {
-          const r = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, password })
+          const r = await fetch("/api/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password }),
           });
           const d = await r.json();
-          if (!r.ok) throw new Error(d.error || 'Registration failed');
+          if (!r.ok) throw new Error(d.error || "Registration failed");
 
-          // Successful registration - redirect to login with a success flag
-          location.href = '/login.html?registered=true';
+          showToast("Account created! Redirecting...", "success");
+
+          setTimeout(() => {
+            location.href = "/login.html?registered=true";
+          }, 1200);
         } catch (e) {
-          msg.textContent = e.message;
-          msg.className = 'msg error';
+          showToast(e.message, "error");
+          btn.disabled = false;
+          spinner.style.display = "none";
+          btnText.textContent = "Register";
         }
       }
     </script>

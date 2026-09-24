@@ -541,8 +541,8 @@ async function loadData() {
   });
   state.imgsByCatch = imgsByCatch;
 
-  // 6. Fetch track summaries and tracks
-  state.tracksSummary = await safeFetchJson("/api/admin/tracks", []);
+  // 6. Fetch track summaries and raw tracks (FIXED ENDPOINT HERE)
+  state.tracksSummary = await safeFetchJson("/api/admin/tracks/summary", []);
   let tracks = await safeFetchJson("/api/admin/tracks", []);
   state.tracks = (Array.isArray(tracks) ? tracks : []).sort(
     (a, b) => new Date(b.recordedAt || 0) - new Date(a.recordedAt || 0),
@@ -649,7 +649,9 @@ async function loadVesselsAdmin() {
         )
       : [];
     renderVesselsAdmin();
-  } catch (e) {}
+  } catch (e) {
+    console.error("Failed to load vessels:", e);
+  }
 }
 
 function renderVesselsAdmin(vessels) {
@@ -659,51 +661,81 @@ function renderVesselsAdmin(vessels) {
       ? adminVesselsData
       : [];
   const table = document.getElementById("vesselsTable");
+  if (!table) return;
+
   if (!arr.length) {
     table.innerHTML =
-      '<tr><td style="text-align:center; padding:20px; color:var(--text-muted)">No vessels registered yet</td></tr>';
+      '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted)">No vessels registered yet</td></tr>';
     return;
   }
+
   table.innerHTML = `
+    <tr>
+      <th>Registration #</th>
+      <th>Vessel Name</th>
+      <th>Owner</th>
+      <th>Barangay</th>
+      <th>Created</th>
+      <th>Updated</th>
+    </tr>
+    ${arr
+      .map((v) => {
+        // Aligned: Check both vessel_name and name properties
+        const vesselName = v.vessel_name || v.name || "—";
+        const regNum =
+          v.vessel_registration_number || v.registration_number || "—";
+        const ownerName = v.owner_name || v.owner || "—";
+        const barangay = v.barangay || "—";
+
+        const createdAt = v.created_at || v.createdAt;
+        const updatedAt = v.updated_at || v.updatedAt;
+
+        const createdStr = createdAt
+          ? new Date(createdAt).toLocaleString()
+          : "—";
+        const updatedStr = updatedAt
+          ? new Date(updatedAt).toLocaleString()
+          : "—";
+
+        return `
           <tr>
-            <th>Registration #</th>
-            <th>Vessel Name</th>
-            <th>Owner</th>
-            <th>Barangay</th>
-            <th>Created</th>
-            <th>Updated</th>
+            <td>${regNum}</td>
+            <td>${vesselName}</td>
+            <td>${ownerName}</td>
+            <td>${barangay}</td>
+            <td>${createdStr}</td>
+            <td>${updatedStr}</td>
           </tr>
-          ${arr
-            .map(
-              (v) => `
-            <tr>
-              <td>${v.vessel_registration_number}</td>
-              <td>${v.vessel_name}</td>
-              <td>${v.owner_name}</td>
-              <td>${v.barangay || ""}</td>
-              <td>${new Date(v.created_at || v.createdAt || 0).toLocaleString()}</td>
-              <td>${new Date(v.updated_at || v.updatedAt || 0).toLocaleString()}</td>
-            </tr>
-          `,
-            )
-            .join("")}
         `;
+      })
+      .join("")}
+  `;
 }
 
 function filterVessels() {
-  const q = document.getElementById("vesselSearch").value.toLowerCase().trim();
+  const q = document.getElementById("vesselSearch")?.value.toLowerCase().trim();
   if (!q) {
     renderVesselsAdmin();
     return;
   }
   const src = Array.isArray(adminVesselsData) ? adminVesselsData : [];
-  const filtered = src.filter(
-    (v) =>
-      (v.vessel_registration_number || "").toLowerCase().includes(q) ||
-      (v.vessel_name || "").toLowerCase().includes(q) ||
-      (v.owner_name || "").toLowerCase().includes(q) ||
-      (v.barangay || "").toLowerCase().includes(q),
-  );
+  const filtered = src.filter((v) => {
+    const regNum = (
+      v.vessel_registration_number ||
+      v.registration_number ||
+      ""
+    ).toLowerCase();
+    const vesselName = (v.vessel_name || v.name || "").toLowerCase();
+    const ownerName = (v.owner_name || v.owner || "").toLowerCase();
+    const barangay = (v.barangay || "").toLowerCase();
+
+    return (
+      regNum.includes(q) ||
+      vesselName.includes(q) ||
+      ownerName.includes(q) ||
+      barangay.includes(q)
+    );
+  });
   renderVesselsAdmin(filtered);
 }
 
@@ -1549,31 +1581,6 @@ function filterCatches() {
       (s.latestSpecies || "").toLowerCase().includes(q),
   );
   renderCatchesSummary(filtered);
-}
-
-function renderTracksSummary(summary) {
-  const tt = document.getElementById("tracks");
-  if (!tt) return;
-  const arr = Array.isArray(summary) ? summary : [];
-  tt.innerHTML =
-    '<tr><th style="width:36px; text-align:center"><input type="checkbox" id="selectAllTracks" onchange="toggleSelectAllUsers(this.checked)" /></th><th>User</th><th>Latest Coordinates</th><th>Last Recorded</th><th>Total Tracks</th><th>Action</th></tr>';
-  if (arr.length === 0) {
-    tt.innerHTML +=
-      '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">No tracks found.</td></tr>';
-    updateSelectedUserUi();
-    return;
-  }
-  arr.forEach((s) => {
-    const checked = state.selectedUsers.has(s.userId) ? "checked" : "";
-    const userName = s.userName || s.userId || "Unknown";
-    const userEmail = s.userEmail || "";
-    tt.innerHTML += `<tr><td style="text-align:center"><input type="checkbox" class="user-checkbox" data-user-id="${s.userId}" onchange="toggleSingleUser('${s.userId}', this.checked)" ${checked} /></td><td><a href="#" onclick="openUserTrackHistory('${s.userId}'); return false;" style="font-weight:600; color:var(--primary)">${userName}</a><div class="small">${userEmail}</div></td><td>${s.latestLat != null && s.latestLng != null ? Number(s.latestLat).toFixed(5) + ", " + Number(s.latestLng).toFixed(5) : "—"}</td><td>${s.latestRecordedAt ? new Date(s.latestRecordedAt).toLocaleString() : "—"}</td><td>${s.totalTracks} tracks</td><td><button onclick="openUserTrackHistory('${s.userId}')">View History</button></td></tr>`;
-  });
-  const allChecked =
-    arr.length > 0 && arr.every((s) => state.selectedUsers.has(s.userId));
-  const selectAll = document.getElementById("selectAllTracks");
-  if (selectAll) selectAll.checked = allChecked;
-  updateSelectedUserUi();
 }
 
 function toggleSelectAllUsers(checked) {
@@ -3181,9 +3188,18 @@ async function loadTrackHistory() {
     const r = await fetch(url, { headers });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || "Failed to load track history");
-    state.trackHistory = (Array.isArray(d) ? d : []).sort(
-      (a, b) => new Date(b.recordedAt) - new Date(a.recordedAt),
-    );
+
+    // Standardize object properties (lat/lng and user info)
+    const rawList = Array.isArray(d) ? d : [];
+    state.trackHistory = rawList
+      .map((t) => ({
+        ...t,
+        lat: t.lat ?? t.latitude,
+        lng: t.lng ?? t.longitude,
+        recordedAt: t.recordedAt || t.recorded_at || t.created_at,
+      }))
+      .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+
     renderTrackHistory();
     updateHistoryMap();
     updateUserHistoryInfo(userId);
@@ -3197,18 +3213,37 @@ async function loadTrackHistory() {
 function updateUserHistoryInfo(userId) {
   const infoEl = document.getElementById("history_user_info");
   if (!infoEl) return;
+
   const summary = (state.tracksSummary || []).find((s) => s.userId === userId);
   const latest = state.trackHistory[0];
-  const name = summary ? summary.userName || userId : userId;
-  const email = summary ? summary.userEmail || "" : "";
+
+  // Resolve user details from summary object or individual track object
+  const name =
+    (summary ? summary.userName : null) ||
+    (latest && latest.user ? latest.user.name : null) ||
+    userId;
+
+  const email =
+    (summary ? summary.userEmail : null) ||
+    (latest && latest.user ? latest.user.email : null) ||
+    "";
+
+  const total = state.trackHistory ? state.trackHistory.length : 0;
+
+  const lat = latest ? (latest.lat ?? latest.latitude) : null;
+  const lng = latest ? (latest.lng ?? latest.longitude) : null;
+
   const latestCoord =
-    latest && latest.lat != null && latest.lng != null
-      ? `${latest.lat.toFixed(5)}, ${latest.lng.toFixed(5)}`
+    lat != null && lng != null
+      ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
       : "—";
-  const latestTime = latest
-    ? new Date(latest.recordedAt).toLocaleString()
-    : "—";
-  infoEl.innerHTML = `<b style="color:var(--text-main); font-size:14px">${name}</b>${email ? " • " + email : ""}<br/>Latest: ${latestCoord} • ${latestTime}`;
+
+  const latestTime =
+    latest && latest.recordedAt
+      ? new Date(latest.recordedAt).toLocaleString()
+      : "—";
+
+  infoEl.innerHTML = `<b style="color:var(--text-main); font-size:14px">${name}</b>${email ? " • " + email : ""}<br/>Total Tracks: ${total} • Latest: ${latestCoord} (${latestTime})`;
 }
 
 function renderTrackHistory() {
@@ -3232,14 +3267,33 @@ function renderTrackHistory() {
       const date = t.recordedAt ? new Date(t.recordedAt) : null;
       const dateStr = date ? date.toLocaleDateString() : "—";
       const timeStr = date ? date.toLocaleTimeString() : "—";
+
+      const lat = t.lat ?? t.latitude;
+      const lng = t.lng ?? t.longitude;
+
       const coordStr =
-        t.lat != null && t.lng != null
-          ? `${t.lat.toFixed(5)}, ${t.lng.toFixed(5)}`
+        lat != null && lng != null
+          ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
           : "—";
-      tbody.innerHTML += `<tr><td style="text-align:center"><input type="checkbox" class="history-track-checkbox" data-id="${t.id}" onchange="toggleSingleHistoryTrack('${t.id}', this.checked)" ${checked} /></td><td><a target="_blank" href="https://maps.google.com/?q=${t.lat},${t.lng}">${coordStr}</a></td><td>${dateStr}</td><td>${timeStr}</td><td><button onclick="confirmDeleteHistoryTrack('${t.id}')">Delete</button></td></tr>`;
+
+      const mapLink =
+        lat != null && lng != null
+          ? `<a target="_blank" href="https://maps.google.com/?q=${lat},${lng}">${coordStr}</a>`
+          : "—";
+
+      tbody.innerHTML += `<tr>
+        <td style="text-align:center">
+          <input type="checkbox" class="history-track-checkbox" data-id="${t.id}" onchange="toggleSingleHistoryTrack('${t.id}', this.checked)" ${checked} />
+        </td>
+        <td>${mapLink}</td>
+        <td>${dateStr}</td>
+        <td>${timeStr}</td>
+        <td><button onclick="confirmDeleteHistoryTrack('${t.id}')">Delete</button></td>
+      </tr>`;
     });
   }
   if (!tbl.querySelector("tbody")) tbl.appendChild(tbody);
+
   const allChecked =
     state.trackHistory.length > 0 &&
     state.trackHistory.every((t) => state.historySelectedTracks.has(t.id));
@@ -3417,6 +3471,111 @@ async function deleteHistoryTrack(id) {
   await fetch("/api/admin/tracks/" + id, { method: "DELETE", headers });
   state.historySelectedTracks.delete(id);
   loadTrackHistory();
+}
+
+async function loadTracksSummary() {
+  const headers = { Authorization: "Bearer " + state.token };
+  try {
+    const res = await fetch("/api/admin/tracks/summary", { headers });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to fetch summary");
+
+    // Guard: Ensure we only store grouped user summary items
+    state.tracksSummary = Array.isArray(data) ? data : [];
+    renderTracksSummary(state.tracksSummary);
+  } catch (err) {
+    console.error("Track Summary Load Error:", err);
+  }
+}
+
+function renderTracksSummary(summary) {
+  const tt = document.getElementById("tracks");
+  if (!tt) return;
+
+  // Guarantee we are operating on unique user summaries
+  const arr = Array.isArray(summary) ? summary : [];
+
+  tt.innerHTML =
+    '<tr><th style="width:36px; text-align:center"><input type="checkbox" id="selectAllTracks" onchange="toggleSelectAllUsers(this.checked)" /></th><th>User</th><th>Latest Coordinates</th><th>Last Recorded</th><th>Total Tracks</th><th>Action</th></tr>';
+
+  if (arr.length === 0) {
+    tt.innerHTML +=
+      '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">No tracks found.</td></tr>';
+    updateSelectedUserUi();
+    return;
+  }
+
+  arr.forEach((s) => {
+    const checked = state.selectedUsers.has(s.userId) ? "checked" : "";
+
+    const userName = s.userName || s.userId || "Unknown User";
+    const userEmail = s.userEmail || "";
+
+    const lat = s.latestLat ?? s.lat ?? s.latitude;
+    const lng = s.latestLng ?? s.lng ?? s.longitude;
+
+    const coordStr =
+      lat != null && lng != null
+        ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
+        : "—";
+
+    const lastRecorded = s.latestRecordedAt || s.recordedAt || s.recorded_at;
+    const recordedStr = lastRecorded
+      ? new Date(lastRecorded).toLocaleString()
+      : "—";
+
+    const count = s.totalTracks != null ? s.totalTracks : 1;
+
+    tt.innerHTML += `<tr>
+      <td style="text-align:center">
+        <input type="checkbox" class="user-checkbox" data-user-id="${s.userId}" onchange="toggleSingleUser('${s.userId}', this.checked)" ${checked} />
+      </td>
+      <td>
+        <a href="#" onclick="openUserTrackHistory('${s.userId}'); return false;" style="font-weight:600; color:var(--primary)">${userName}</a>
+        <div class="small" style="color:var(--text-muted)">${userEmail}</div>
+      </td>
+      <td>${coordStr}</td>
+      <td>${recordedStr}</td>
+      <td>${count} tracks</td>
+      <td><button onclick="openUserTrackHistory('${s.userId}')">View History</button></td>
+    </tr>`;
+  });
+
+  const allChecked =
+    arr.length > 0 && arr.every((s) => state.selectedUsers.has(s.userId));
+  const selectAll = document.getElementById("selectAllTracks");
+  if (selectAll) selectAll.checked = allChecked;
+  updateSelectedUserUi();
+}
+
+function updateTrackHistoryUserInfo(userId) {
+  const infoEl = document.getElementById("track_history_user_info");
+  if (!infoEl) return;
+
+  const summary = (state.tracksSummary || []).find((s) => s.userId === userId);
+  const latestTrack = state.trackHistory ? state.trackHistory[0] : null;
+
+  const userName = summary
+    ? summary.userName
+    : latestTrack && latestTrack.user
+      ? latestTrack.user.name
+      : userId;
+
+  const userEmail = summary
+    ? summary.userEmail
+    : latestTrack && latestTrack.user
+      ? latestTrack.user.email
+      : "";
+
+  const totalTracks = state.trackHistory ? state.trackHistory.length : 0;
+  const latestTime =
+    latestTrack && latestTrack.recordedAt
+      ? new Date(latestTrack.recordedAt).toLocaleString()
+      : "—";
+
+  infoEl.innerHTML = `<b style="color:var(--text-main); font-size:14px">${userName}</b>${
+    userEmail ? " • " + userEmail : ""
+  }<br/>Total Recorded Tracks: ${totalTracks} • Latest: ${latestTime}`;
 }
 
 function closeCatchHistory() {
@@ -3632,17 +3791,45 @@ function renderCatchHistory() {
           ? new Date(c.createdAt)
           : null;
       const captured = date ? date.toLocaleString() : "—";
-      const coordStr =
-        c.lat != null && c.lng != null
-          ? `${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}`
-          : "—";
+
+      // Fallback check for coordinates
+      const lat = c.lat ?? c.latitude;
+      const lng = c.lng ?? c.longitude;
+      const hasCoords =
+        lat != null &&
+        lng != null &&
+        !isNaN(Number(lat)) &&
+        !isNaN(Number(lng));
+
+      const coordStr = hasCoords
+        ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`
+        : "—";
+      const coordCell = hasCoords
+        ? `<a target="_blank" rel="noopener" href="https://maps.google.com/?q=${lat},${lng}">${coordStr}</a>`
+        : "—";
+
       const hrs = c.hoursFished != null ? Number(c.hoursFished).toFixed(1) : "";
       const hooks = c.numHooksPanels != null ? c.numHooksPanels : "";
       const hauls = c.numHauls != null ? c.numHauls : "";
       const photoCell = c.photoUrl
         ? `<a target="_blank" rel="noopener" href="${c.photoUrl}" title="Open full-size photo"><img src="${c.photoUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:8px;border:1px solid var(--border);display:block" alt="Catch photo" onerror="this.outerHTML='<div style=&quot;width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px dashed var(--border);background:var(--background);color:var(--text-muted)&quot; title=&quot;Photo unavailable&quot;><i class=&quot;fa-solid fa-image&quot; style=&quot;font-size:16px&quot;></i></div>'"/></a>`
         : `<div style="width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px dashed var(--border);background:var(--background);color:var(--text-muted)" title="No Photo"><i class="fa-solid fa-camera-slash" style="font-size:16px"></i></div>`;
-      tbody.innerHTML += `<tr data-id="${c.id}"><td>${photoCell}</td><td class="sp">${c.species}</td><td class="wt">${c.weightKg || ""}</td><td class="ln">${c.lengthCm || ""}</td><td class="nt">${c.netType || ""}</td><td class="gr">${c.gear || ""}</td><td class="hf">${hrs}</td><td class="nhp">${hooks}</td><td class="nh">${hauls}</td><td class="vs">${c.vesselName || c.vessel || ""}</td><td><a target="_blank" href="https://maps.google.com/?q=${c.lat},${c.lng}">${coordStr}</a></td><td>${captured}</td><td class="act"><button onclick="startEditCatch('${c.id}','${c.species}','${(c.note || "").replace(/\"/g, "&quot;")}',${c.weightKg || null},${c.lengthCm || null},'${(c.netType || "").replace(/"/g, "&quot;")}','${(c.gear || "").replace(/"/g, "&quot;")}','${(c.vessel || "").replace(/"/g, "&quot;")}',${c.hoursFished != null ? c.hoursFished : "null"},${c.numHooksPanels != null ? c.numHooksPanels : "null"},${c.numHauls != null ? c.numHauls : "null"})">Edit</button> <button onclick="confirmDeleteCatchHistoryTrack('${c.id}')">Delete</button></td></tr>`;
+
+      tbody.innerHTML += `<tr data-id="${c.id}">
+        <td>${photoCell}</td>
+        <td class="sp">${c.species}</td>
+        <td class="wt">${c.weightKg || ""}</td>
+        <td class="ln">${c.lengthCm || ""}</td>
+        <td class="nt">${c.netType || ""}</td>
+        <td class="gr">${c.engine || c.gear || ""}</td>
+        <td class="hf">${hrs}</td>
+        <td class="nhp">${hooks}</td>
+        <td class="nh">${hauls}</td>
+        <td class="vs">${c.vesselName || c.vessel || ""}</td>
+        <td>${coordCell}</td>
+        <td>${captured}</td>
+        <td class="act"><button onclick="startEditCatch('${c.id}','${c.species}','${(c.note || "").replace(/"/g, "&quot;")}',${c.weightKg || null},${c.lengthCm || null},'${(c.netType || "").replace(/"/g, "&quot;")}','${(c.gear || "").replace(/"/g, "&quot;")}','${(c.vesselName || c.vessel || "").replace(/"/g, "&quot;")}',${c.hoursFished != null ? c.hoursFished : "null"},${c.numHooksPanels != null ? c.numHooksPanels : "null"},${c.numHauls != null ? c.numHauls : "null"})">Edit</button> <button onclick="confirmDeleteCatchHistoryTrack('${c.id}')">Delete</button></td>
+      </tr>`;
     });
   }
   if (!tbl.querySelector("tbody")) tbl.appendChild(tbody);

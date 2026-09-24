@@ -1,214 +1,433 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0a84ff" />
+    <meta name="theme-color" content="#0077b6" />
     <title>Login - FishMonitor</title>
-    <link rel="icon" href="/logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="icon" href="/bfar.svg" type="image/svg+xml" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
       :root {
-        --primary: #007aff;
-        --primary-hover: #0056b3;
-        --surface: #ffffff;
-        --background: #f5f5f7;
-        --text-main: #1d1d1f;
-        --text-muted: #86868b;
-        --border: #d2d2d7;
-        --success: #34c759;
-        --error: #ff3b30;
-        --shadow: 0 4px 6px rgba(0,0,0,0.05), 0 10px 15px rgba(0,0,0,0.1);
-        --radius: 16px;
+        --primary: #0077b6; /* Ocean Blue */
+        --primary-hover: #0096c7;
+        --surface: #ffffff; /* Clean Card Surface */
+        --background: #eaf7ff; /* Main Page Background */
+        --text-main: #023047; /* Primary Dark Headings */
+        --text-muted: #4f5d75; /* Secondary Text */
+        --border: #bde0fe; /* Subtle Border */
+        --success: #06d6a0;
+        --error: #ef476f;
+        --shadow: 0 12px 32px rgba(2, 48, 71, 0.08);
+        --radius: 20px;
       }
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --surface: #1c1c1e;
-          --background: #000000;
-          --text-main: #f5f5f7;
-          --text-muted: #86868b;
-          --border: #424245;
-        }
+
+      * {
+        box-sizing: border-box;
       }
+
+      html,
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        height: 100%;
         margin: 0;
-        background-color: var(--background);
-        color: var(--text-main);
+        padding: 0;
+        overflow: hidden; /* Fits viewport without scrolling */
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+
+      body {
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 100vh;
-        background-image: linear-gradient(rgba(0,0,0,0.7), rgba(0,0,0,0.7)), url('/assets/auth-bg.jpg');
-        background-size: cover;
-        background-position: center;
+        /* Subtle oceanic clean gradient background */
+        background: linear-gradient(135deg, #eaf7ff 0%, #d6eaf8 100%);
+        padding: 16px;
       }
+
+      /* Clean Card Container */
       .card {
         background: var(--surface);
         border: 1px solid var(--border);
-        padding: 40px;
-        border-radius: 24px;
+        padding: 32px 32px;
+        border-radius: var(--radius);
         box-shadow: var(--shadow);
         width: 100%;
-        max-width: 400px;
+        max-width: 450px;
         text-align: center;
+        max-height: 96vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
-      .logo { width: 64px; height: 64px; margin-bottom: 16px; }
-      h1 { font-size: 24px; font-weight: 800; margin: 0; color: var(--text-main); }
-      p { color: var(--text-muted); font-size: 14px; margin-top: 8px; margin-bottom: 24px; }
-      
-      .field { text-align: left; margin-bottom: 16px; }
-      label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--text-muted); }
-      input {
-        width: 100%;
-        padding: 12px 16px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        background: var(--surface);
+
+      .logo {
+        width: 56px;
+        height: 56px;
+        margin: 0 auto 10px auto;
+        object-fit: contain;
+      }
+
+      h1 {
+        font-size: 24px;
+        font-weight: 800;
+        margin: 0;
         color: var(--text-main);
-        font-size: 16px;
-        box-sizing: border-box;
+        letter-spacing: -0.02em;
       }
-      input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2); }
-      
-      button {
+
+      p.subtitle {
+        color: var(--text-muted);
+        font-size: 13px;
+        margin-top: 4px;
+        margin-bottom: 20px;
+      }
+
+      .field {
+        text-align: left;
+        margin-bottom: 14px;
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text-main);
+      }
+
+      /* High-contrast Inputs */
+      input[type="email"],
+      input[type="password"],
+      input[type="text"] {
         width: 100%;
-        padding: 14px;
-        background: var(--primary);
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 8px;
-        transition: background 0.2s;
+        padding: 11px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: #ffffff;
+        color: var(--text-main) !important;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.2s ease;
       }
-      button:hover { background: var(--primary-hover); }
-      
-      .passwrap { position: relative; }
+
+      input::placeholder {
+        color: #8d99ae;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 119, 182, 0.15);
+      }
+
+      /* Dynamic Helper Text */
+      .helper-text {
+        font-size: 11px;
+        margin-top: 4px;
+        color: var(--text-muted);
+        min-height: 16px;
+        transition: color 0.2s ease;
+      }
+      .helper-text.valid {
+        color: #059669;
+        font-weight: 600;
+      }
+      .helper-text.invalid {
+        color: var(--error);
+        font-weight: 600;
+      }
+
+      .passwrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .passwrap input {
+        padding-right: 38px;
+      }
+
       .toggle-eye {
         position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
+        right: 10px;
         background: none;
         border: none;
         color: var(--text-muted);
         cursor: pointer;
-        padding: 0;
-        margin: 0;
-        width: auto;
+        padding: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: color 0.2s ease;
       }
-      
-      .msg { font-size: 13px; margin-top: 16px; min-height: 20px; }
-      .msg.error { color: var(--error); }
-      .msg.success { color: var(--success); }
-      
-      .links { margin-top: 24px; font-size: 14px; }
-      .links a { color: var(--primary); text-decoration: none; font-weight: 600; }
-      .links a:hover { text-decoration: underline; }
+
+      .toggle-eye:hover {
+        color: var(--primary);
+      }
 
       .row-between {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin: -4px 0 12px 0;
+        gap: 8px;
+        margin: 2px 0 16px 0;
         font-size: 13px;
       }
+
       .remember {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         color: var(--text-main);
-        font-weight: 500;
+        font-weight: 600;
         cursor: pointer;
         user-select: none;
       }
+
       .remember input[type="checkbox"] {
-        width: auto;
-        margin: 0;
         accent-color: var(--primary);
         width: 16px;
         height: 16px;
-        padding: 0;
+        cursor: pointer;
+        margin: 0;
       }
+
       .forgot-link {
         color: var(--primary);
-        font-weight: 600;
+        font-weight: 700;
         text-decoration: none;
-        white-space: nowrap;
+        transition: color 0.2s;
       }
-      .forgot-link:hover { text-decoration: underline; }
+
+      .forgot-link:hover {
+        color: var(--primary-hover);
+        text-decoration: underline;
+      }
+
+      /* Submit & OAuth Buttons */
+      button.btn-submit {
+        width: 100%;
+        padding: 12px;
+        background: var(--primary);
+        color: #ffffff;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(0, 119, 182, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      button.btn-submit:hover:not(:disabled) {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+      }
+
+      button.btn-submit:disabled,
+      .btn-google:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
 
       .divider {
         display: flex;
         align-items: center;
-        gap: 12px;
-        margin: 20px 0 8px 0;
+        gap: 10px;
+        margin: 16px 0 12px 0;
         color: var(--text-muted);
-        font-size: 13px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
       }
+
       .divider::before,
       .divider::after {
         content: "";
-        flex: 1 1 auto;
+        flex: 1;
         height: 1px;
         background: var(--border);
       }
 
+      /* Google OAuth Button */
       .btn-google {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
-        padding: 14px;
-        background: var(--surface);
+        padding: 11px;
+        background: #ffffff;
         color: var(--text-main);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        font-size: 16px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        margin-top: 8px;
-        transition: background 0.2s, border-color 0.2s;
-        box-sizing: border-box;
+        transition: all 0.2s ease;
       }
-      .btn-google:hover {
-          background: rgba(0,0,0,0.03);
-          border-color: #b8b8bd;
-        }
-      @media (prefers-color-scheme: dark) {
-        .btn-google:hover { background: rgba(255,255,255,0.04); border-color: #636366; }
+
+      .btn-google:hover:not(:disabled) {
+        background: #f8fdff;
+        border-color: var(--primary);
       }
+
       .btn-google svg {
-        width: 20px;
-        height: 20px;
+        width: 18px;
+        height: 18px;
         flex-shrink: 0;
+      }
+
+      /* Preloader Spinners */
+      .spinner {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: #ffffff;
+        animation: spin 0.8s linear infinite;
+      }
+
+      .spinner-dark {
+        display: none;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(2, 48, 71, 0.2);
+        border-radius: 50%;
+        border-top-color: var(--primary);
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Toast Notification Container */
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .toast {
+        min-width: 280px;
+        padding: 14px 18px;
+        border-radius: 12px;
+        background: #ffffff;
+        color: var(--text-main);
+        font-size: 13px;
+        font-weight: 600;
+        box-shadow: 0 10px 25px rgba(2, 48, 71, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-left: 5px solid var(--primary);
+        transform: translateX(120%);
+        transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      }
+
+      .toast.show {
+        transform: translateX(0);
+      }
+
+      .toast.success {
+        border-left-color: var(--success);
+      }
+      .toast.success i {
+        color: var(--success);
+      }
+      .toast.error {
+        border-left-color: var(--error);
+      }
+      .toast.error i {
+        color: var(--error);
+      }
+      .toast.info {
+        border-left-color: var(--primary);
+      }
+      .toast.info i {
+        color: var(--primary);
+      }
+
+      .links {
+        margin-top: 18px;
+        font-size: 13px;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      .links a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .links a:hover {
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <div class="card">
-      <img src="/logo.svg" alt="Logo" class="logo" />
+      <img src="/bfar.svg" alt="BFAR Logo" class="logo" />
       <h1>FishMonitor</h1>
-      <p>Sign in to your account</p>
-      
-      <div id="success_msg" class="msg success" style="display:none; margin-bottom:16px; padding:12px; background:rgba(52, 199, 89, 0.1); border-radius:12px; border:1px solid var(--success)"></div>
+      <p class="subtitle">Sign in to your account</p>
 
       <div class="field">
-        <label>Email Address</label>
-        <input id="email" type="email" />
+        <label for="email">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="name@example.com"
+          autocomplete="email"
+          oninput="validateEmail()"
+        />
+        <div id="emailHelper" class="helper-text">
+          Enter your registered email address
+        </div>
       </div>
-      
+
       <div class="field">
-        <label>Password</label>
+        <label for="password">Password</label>
         <div class="passwrap">
-          <input id="password" type="password" />
-          <button class="toggle-eye" onclick="togglePassword()">🔒</button>
+          <input
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            oninput="validatePassword()"
+          />
+          <button
+            class="toggle-eye"
+            type="button"
+            onclick="togglePassword()"
+            aria-label="Toggle password visibility"
+          >
+            <i id="eye_icon" class="fa-solid fa-eye"></i>
+          </button>
+        </div>
+        <div id="passHelper" class="helper-text">
+          Enter your account password
         </div>
       </div>
 
@@ -217,73 +436,156 @@
           <input id="remember" type="checkbox" />
           Remember me
         </label>
-        <a href="#" onclick="forgotPassword(event)" class="forgot-link">Forgot Password?</a>
+        <a href="#" onclick="forgotPassword(event)" class="forgot-link"
+          >Forgot Password?</a
+        >
       </div>
-      
-      <button onclick="login()">Login</button>
+
+      <button id="submitBtn" class="btn-submit" onclick="login()">
+        <span class="spinner" id="btnSpinner"></span>
+        <span id="btnText">Login</span>
+      </button>
 
       <div class="divider">OR</div>
 
-      <button onclick="googleLogin()" class="btn-google" type="button">
-        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      <button
+        id="googleBtn"
+        onclick="googleLogin()"
+        class="btn-google"
+        type="button"
+      >
+        <span class="spinner-dark" id="googleSpinner"></span>
+        <svg
+          id="googleIcon"
+          viewBox="0 0 48 48"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path
+            fill="#EA4335"
+            d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+          />
+          <path
+            fill="#4285F4"
+            d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+          />
+          <path
+            fill="#34A853"
+            d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+          />
         </svg>
-        Continue with Google
+        <span id="googleBtnText">Continue with Google</span>
       </button>
 
-      <div id="msg" class="msg"></div>
-      
       <div class="links">
         Don't have an account? <a href="/register.html">Register</a>
       </div>
     </div>
 
     <script>
-      const REMEMBER_KEY = 'fish_login_remember_v1';
-      const REMEMBERED_EMAIL_KEY = 'fish_login_email_v1';
+      const REMEMBER_KEY = "fish_login_remember_v1";
+      const REMEMBERED_EMAIL_KEY = "fish_login_email_v1";
+
+      // Dynamic Toast System
+      function showToast(message, type = "success") {
+        const container = document.getElementById("toastContainer");
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+
+        let icon = "fa-circle-check";
+        if (type === "error") icon = "fa-circle-exclamation";
+        if (type === "info") icon = "fa-circle-info";
+
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+        container.appendChild(toast);
+
+        // Animate slide-in
+        setTimeout(() => toast.classList.add("show"), 10);
+
+        // Auto remove after 3.5 seconds
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 300);
+        }, 3500);
+      }
 
       // Check if redirected from registration
       const params = new URLSearchParams(location.search);
-      if (params.has('registered')) {
-        const sm = document.getElementById('success_msg');
-        sm.textContent = 'Account created successfully! Please log in to continue.';
-        sm.style.display = 'block';
+      if (params.has("registered")) {
+        showToast("Account created successfully! Please log in.", "success");
+      }
+
+      // Input Validations
+      function validateEmail() {
+        const email = document.getElementById("email").value.trim();
+        const helper = document.getElementById("emailHelper");
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (!email) {
+          helper.textContent = "Enter your registered email address";
+          helper.className = "helper-text";
+        } else if (!emailRegex.test(email)) {
+          helper.textContent = "Please enter a valid email address";
+          helper.className = "helper-text invalid";
+        } else {
+          helper.textContent = "Valid email format";
+          helper.className = "helper-text valid";
+        }
+      }
+
+      function validatePassword() {
+        const password = document.getElementById("password").value;
+        const helper = document.getElementById("passHelper");
+
+        if (!password) {
+          helper.textContent = "Enter your account password";
+          helper.className = "helper-text";
+        } else {
+          helper.textContent = "Password entered";
+          helper.className = "helper-text valid";
+        }
       }
 
       // Restore remembered email + checkbox state
       (function restoreRemembered() {
         try {
-          const rememberOn = localStorage.getItem(REMEMBER_KEY) === '1';
-          const rememberedEmail = localStorage.getItem(REMEMBERED_EMAIL_KEY) || '';
-          const cb = document.getElementById('remember');
-          const emailEl = document.getElementById('email');
+          const rememberOn = localStorage.getItem(REMEMBER_KEY) === "1";
+          const rememberedEmail =
+            localStorage.getItem(REMEMBERED_EMAIL_KEY) || "";
+          const cb = document.getElementById("remember");
+          const emailEl = document.getElementById("email");
           if (cb) cb.checked = rememberOn;
-          if (rememberOn && rememberedEmail && emailEl) emailEl.value = rememberedEmail;
+          if (rememberOn && rememberedEmail && emailEl) {
+            emailEl.value = rememberedEmail;
+            validateEmail();
+          }
         } catch {}
       })();
 
       function togglePassword() {
-        const p = document.getElementById('password');
-        const btn = document.querySelector('.toggle-eye');
-        if (p.type === 'password') {
-          p.type = 'text';
-          btn.textContent = '🔓';
+        const p = document.getElementById("password");
+        const icon = document.getElementById("eye_icon");
+        if (p.type === "password") {
+          p.type = "text";
+          icon.className = "fa-solid fa-eye-slash";
         } else {
-          p.type = 'password';
-          btn.textContent = '🔒';
+          p.type = "password";
+          icon.className = "fa-solid fa-eye";
         }
       }
 
       function persistRememberChoice(emailValue) {
         try {
-          const cb = document.getElementById('remember');
+          const cb = document.getElementById("remember");
           const on = cb && cb.checked;
           if (on) {
-            localStorage.setItem(REMEMBER_KEY, '1');
-            if (emailValue) localStorage.setItem(REMEMBERED_EMAIL_KEY, String(emailValue));
+            localStorage.setItem(REMEMBER_KEY, "1");
+            if (emailValue)
+              localStorage.setItem(REMEMBERED_EMAIL_KEY, String(emailValue));
           } else {
             localStorage.removeItem(REMEMBER_KEY);
             localStorage.removeItem(REMEMBERED_EMAIL_KEY);
@@ -297,85 +599,131 @@
       }
 
       function openForgotPrompt() {
-        const email = (document.getElementById('email').value || '').trim();
-        const msg = document.getElementById('msg');
-        msg.className = 'msg';
-        const msgText = email
-          ? `If an account exists for ${email}, a password reset link will be sent.`
-          : 'Please enter your email first, then click Forgot Password again to receive a reset link.';
-        msg.textContent = msgText;
-        // Optional: hook to backend forgot endpoint here later
+        const email = (document.getElementById("email").value || "").trim();
+        if (email) {
+          showToast(`Password reset link sent to ${email}`, "info");
+        } else {
+          showToast("Please enter your email address first.", "error");
+        }
       }
 
       async function googleLogin() {
-        const msg = document.getElementById('msg');
-        msg.className = 'msg';
-        msg.textContent = 'Redirecting to Google…';
+        const googleBtn = document.getElementById("googleBtn");
+        const googleSpinner = document.getElementById("googleSpinner");
+        const googleIcon = document.getElementById("googleIcon");
+        const googleBtnText = document.getElementById("googleBtnText");
+
+        // Set visual loading state
+        googleBtn.disabled = true;
+        googleIcon.style.display = "none";
+        googleSpinner.style.display = "inline-block";
+        googleBtnText.textContent = "Connecting...";
+
         try {
-          // Quick availability check (optional) — then redirect
-          location.href = '/api/auth/google';
+          // 1. Pre-check if Google OAuth is configured on the backend
+          const configRes = await fetch("/api/auth/google/config");
+          const configData = await configRes.json();
+
+          if (!configRes.ok || !configData.configured) {
+            throw new Error(
+              "Google login is currently unavailable or not configured.",
+            );
+          }
+
+          // 2. Notify user and proceed to redirect
+          showToast("Redirecting to Google...", "info");
+
+          // Slight delay to allow the toast animation to render smoothly before redirecting
+          setTimeout(() => {
+            location.href = "/api/auth/google";
+          }, 300);
         } catch (e) {
-          msg.className = 'msg error';
-          msg.textContent = (e && e.message) ? String(e.message) : 'Failed to start Google sign-in.';
+          // Show feedback without leaving the page
+          showToast(
+            e && e.message
+              ? String(e.message)
+              : "Failed to start Google sign-in.",
+            "error",
+          );
+
+          // Reset button UI state
+          googleBtn.disabled = false;
+          googleIcon.style.display = "block";
+          googleSpinner.style.display = "none";
+          googleBtnText.textContent = "Continue with Google";
         }
       }
 
       (function handleLoginQueryParams() {
         const params = new URLSearchParams(location.search);
-        const err = params.get('error');
-        const msg = document.getElementById('msg');
-        if (err && msg) {
-          msg.className = 'msg error';
-          msg.textContent = err;
-          // Clear from URL without reloading
+        const err = params.get("error");
+        if (err) {
+          showToast(err, "error");
           const u = new URL(location.href);
-          u.searchParams.delete('error');
+          u.searchParams.delete("error");
           window.history.replaceState({}, document.title, u.toString());
         }
-        // In case Google OAuth callback accidentally lands here with token:
-        const token = params.get('token');
-        const userRaw = params.get('user');
+
+        const token = params.get("token");
+        const userRaw = params.get("user");
         if (token) {
           try {
             const user = userRaw ? JSON.parse(userRaw) : null;
-            localStorage.setItem('fish_token', token);
-            if (user) localStorage.setItem('fish_user', JSON.stringify(user));
-            const dest = (user && user.role === 'admin') ? '/admin.html' : '/user.html';
-            location.replace(dest);
+            localStorage.setItem("fish_token", token);
+            if (user) localStorage.setItem("fish_user", JSON.stringify(user));
+            const dest =
+              user && user.role === "admin" ? "/admin.html" : "/user.html";
+            showToast("Login successful! Redirecting...", "success");
+            setTimeout(() => location.replace(dest), 1000);
           } catch (e) {}
         }
       })();
 
       async function login() {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        const msg = document.getElementById('msg');
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        if (!email || !password) {
+          showToast("Please enter both email and password.", "error");
+          return;
+        }
 
         persistRememberChoice(email);
 
-        msg.textContent = 'Logging in...';
-        msg.className = 'msg';
+        const btn = document.getElementById("submitBtn");
+        const spinner = document.getElementById("btnSpinner");
+        const btnText = document.getElementById("btnText");
+
+        btn.disabled = true;
+        spinner.style.display = "inline-block";
+        btnText.textContent = "Logging in...";
 
         try {
-          const r = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+          const r = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
           });
           const d = await r.json();
-          if (!r.ok) throw new Error(d.error || 'Login failed');
+          if (!r.ok) throw new Error(d.error || "Login failed");
 
-          localStorage.setItem('fish_token', d.token);
-          localStorage.setItem('fish_user', JSON.stringify(d.user));
+          localStorage.setItem("fish_token", d.token);
+          localStorage.setItem("fish_user", JSON.stringify(d.user));
 
-          if (d.user.role === 'admin') {
-            location.href = '/admin.html';
-          } else {
-            location.href = '/user.html';
-          }
+          showToast("Login successful! Redirecting...", "success");
+
+          setTimeout(() => {
+            if (d.user.role === "admin") {
+              location.href = "/admin.html";
+            } else {
+              location.href = "/user.html";
+            }
+          }, 1000);
         } catch (e) {
-          msg.textContent = e.message;
-          msg.className = 'msg error';
+          showToast(e.message, "error");
+          btn.disabled = false;
+          spinner.style.display = "none";
+          btnText.textContent = "Login";
         }
       }
     </script>
