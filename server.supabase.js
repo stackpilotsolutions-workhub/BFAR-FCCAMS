@@ -12,7 +12,7 @@ const webpush = require("web-push");
 const crypto = require("crypto");
 const https = require("https");
 const multer = require("multer");
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Google OAuth
 const { OAuth2Client } = (() => {
@@ -145,48 +145,58 @@ async function upsertGoogleUserSupabase({ sub, email, name, picture }) {
   const emailKey = String(email || "")
     .trim()
     .toLowerCase();
-  const subKey = String(sub || "").trim();
-  if (!emailKey || !subKey) throw new Error("Missing Google profile");
+  if (!emailKey) throw new Error("Missing Google profile email");
+
   const now = new Date().toISOString();
   const client = supabaseService || supabase;
+
+  // 1. Search existing user strictly by email
   let res = await client
     .from("profiles")
-    .select("*")
-    .or(`google_id.eq.${subKey},email.eq.${emailKey}`)
-    .limit(2);
+    .select("id, email, name, role, barangay, fisher_id, municipality")
+    .eq("email", emailKey)
+    .limit(1);
+
   let profile = (res.data && res.data[0]) || null;
+
   if (profile) {
-    const patch = { google_id: subKey };
-    if (picture) patch.avatar_url = String(picture);
-    if (!profile.name) patch.name = name;
-    if (!profile.email) patch.email = emailKey;
-    const upd = await client
-      .from("profiles")
-      .update(patch)
-      .eq("id", profile.id)
-      .select("*")
-      .limit(1);
-    if (upd && upd.data && upd.data[0]) profile = upd.data[0];
+    // 2. User exists: Update name if missing
+    if (!profile.name && name) {
+      const upd = await client
+        .from("profiles")
+        .update({ name, updated_at: now })
+        .eq("id", profile.id)
+        .select("id, email, name, role, barangay, fisher_id, municipality")
+        .single();
+      if (upd && upd.data) profile = upd.data;
+    }
   } else {
-    const role = "fisher";
+    // 3. User doesn't exist: Create new profile row matching schema
     const newRow = {
-      id: nanoid(),
+      id: crypto.randomUUID(), // Generates a standard UUID
       name: name || emailKey.split("@")[0] || "Google User",
       email: emailKey,
-      role,
-      google_id: subKey,
-      avatar_url: picture || null,
+      role: "inspector",
       created_at: now,
+      updated_at: now,
     };
+
     const ins = await client
       .from("profiles")
       .insert([newRow])
-      .select("*")
-      .limit(1);
-    if (!ins || !ins.data || !ins.data[0])
-      throw new Error("Failed to create user record from Google profile");
-    profile = ins.data[0];
+      .select("id, email, name, role, barangay, fisher_id, municipality")
+      .single();
+
+    if (ins.error || !ins.data) {
+      console.error("[Google OAuth] Insert Error:", ins.error);
+      throw new Error(
+        "Failed to create user record: " +
+          (ins.error ? ins.error.message : "Unknown error"),
+      );
+    }
+    profile = ins.data;
   }
+
   return profile;
 }
 
@@ -1390,6 +1400,7 @@ app.post("/api/activity_logs", auth(), async (req, res) => {
   res.json(data);
 });
 
+// POST /api/activity_logs/upload
 app.post(
   "/api/activity_logs/upload",
   auth(),
@@ -1400,7 +1411,8 @@ app.post(
       let photoUrl = null;
 
       if (req.file) {
-        const fileContent = fs.readFileSync(req.file.path);
+        // Access file directly from memory buffer
+        const fileContent = req.file.buffer;
         const fileName = `activities/${req.user.id}/${Date.now()}_${req.file.originalname}`;
 
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -1415,7 +1427,6 @@ app.post(
           data: { publicUrl },
         } = supabase.storage.from("uploads").getPublicUrl(fileName);
         photoUrl = publicUrl;
-        fs.unlinkSync(req.file.path);
       }
 
       const { data, error } = await supabase
@@ -1817,7 +1828,8 @@ app.post(
       let photoUrl = null;
 
       if (req.file) {
-        const fileContent = fs.readFileSync(req.file.path);
+        // Access file directly from memory buffer
+        const fileContent = req.file.buffer;
         const safeFileName = req.file.originalname.replace(
           /[^a-zA-Z0-9.-]/g,
           "_",
@@ -1834,11 +1846,6 @@ app.post(
             contentType: req.file.mimetype,
             upsert: true,
           });
-
-        // Cleanup local temp file created by multer
-        if (fs.existsSync(req.file.path)) {
-          fs.unlinkSync(req.file.path);
-        }
 
         if (uploadError) {
           console.error("❌ SUPABASE STORAGE ERROR:", uploadError);
@@ -2005,14 +2012,16 @@ app.get("/api/catches", auth("admin"), async (req, res) => {
       normalizeText(c.gear) ||
       null,
     weightKg: c.weight,
-    lengthCm: c.length,
+    lengthCm: c.length_cm, // Aligned with column: length_cm
     netType: c.net_type,
     hoursFished: c.hours_fished,
     numHooksPanels: c.num_hooks_panels,
     numHauls: c.num_hauls,
-    capturedAt: c.recorded_at,
+    lat: c.latitude != null ? Number(c.latitude) : null, // Mapped to lat for frontend
+    lng: c.longitude != null ? Number(c.longitude) : null, // Mapped to lng for frontend
+    capturedAt: c.captured_at || c.recorded_at,
     photoUrl: c.image_url,
-    note: c.notes,
+    note: c.note, // Aligned with column: note
   }));
   res.json(list);
 });
@@ -2509,13 +2518,21 @@ app.put("/api/users/:id", auth("admin"), async (req, res) => {
   const { name, email, role, password } = req.body;
 
   try {
-    // 1. Update the 'profiles' database table
+    // 1. Build profile updates object
     const profileUpdates = {
       ...(name && { name }),
       ...(email && { email }),
       ...(role && { role }),
+      updated_at: new Date().toISOString(),
     };
 
+    // FIX: If a new password was provided, hash it and add to profile updates
+    if (password && password.trim() !== "") {
+      const saltRounds = 10;
+      profileUpdates.password_hash = await bcrypt.hash(password, saltRounds);
+    }
+
+    // 2. Update the 'profiles' database table
     const { data: updatedProfile, error: profileError } = await supabase
       .from("profiles")
       .update(profileUpdates)
@@ -2528,7 +2545,7 @@ app.put("/api/users/:id", auth("admin"), async (req, res) => {
       return res.status(400).json({ error: profileError.message });
     }
 
-    // 2. Sync credentials with Supabase Auth (ONLY if ID is a valid UUID)
+    // 3. Sync credentials with Supabase Auth (if user was created via Supabase Auth)
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         id,
@@ -2551,14 +2568,10 @@ app.put("/api/users/:id", auth("admin"), async (req, res) => {
         }
       } catch (authErr) {
         console.warn(
-          `[/api/users/${id}] Supabase Auth update skipped for non-auth user:`,
+          `[/api/users/${id}] Supabase Auth update skipped:`,
           authErr.message,
         );
       }
-    } else if (!isUuid && (email || password)) {
-      console.warn(
-        `[/api/users/${id}] Skipped Supabase Auth credential update because ID is not a UUID.`,
-      );
     }
 
     console.log(`[/api/users/${id}] Updated successfully:`, updatedProfile);
@@ -2705,16 +2718,148 @@ app.delete("/api/admin/users/:id", auth("admin"), async (req, res) => {
   }
 });
 
-// app.get('/api/admin/users', auth('admin'), async (req, res) => {
-//   const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-//   if (error) return res.status(400).json({ error: error.message })
-//   res.json(data)
-// })
-
+// 1. Group tracks per user to populate state.tracksSummary
 app.get("/api/admin/tracks/summary", auth("admin"), async (req, res) => {
-  res.json({ totalTracks: 0, activeTracks: 0 });
+  try {
+    // Query raw tracks sorted by newest first
+    const { data: tracks, error: tracksError } = await supabase
+      .from("tracks")
+      .select("*")
+      .order("recorded_at", { ascending: false });
+
+    if (tracksError)
+      return res.status(400).json({ error: tracksError.message });
+
+    // Fetch all profiles to ensure mapping even if Supabase FK relationships are missing
+    const { data: profiles } = await supabase.from("profiles").select("*");
+
+    // Build map supporting both profile.id and profile.user_id
+    const profileMap = new Map();
+    (profiles || []).forEach((p) => {
+      if (p.id) profileMap.set(String(p.id), p);
+      if (p.user_id) profileMap.set(String(p.user_id), p);
+    });
+
+    const summaryMap = new Map();
+
+    (tracks || []).forEach((t) => {
+      const uid = String(t.user_id || "");
+      if (!uid) return;
+
+      const matchedProfile = profileMap.get(uid);
+      const profileName = matchedProfile
+        ? matchedProfile.name ||
+          matchedProfile.full_name ||
+          matchedProfile.username
+        : null;
+      const profileEmail = matchedProfile ? matchedProfile.email || "" : "";
+
+      // Check coordinates fallback
+      const rawLat = t.latitude != null ? t.latitude : t.lat;
+      const rawLng = t.longitude != null ? t.longitude : t.lng;
+
+      if (!summaryMap.has(uid)) {
+        summaryMap.set(uid, {
+          userId: uid,
+          userName: profileName || uid,
+          userEmail: profileEmail,
+          latestLat: rawLat != null ? Number(rawLat) : null,
+          latestLng: rawLng != null ? Number(rawLng) : null,
+          latestRecordedAt: t.recorded_at || t.created_at || null,
+          totalTracks: 1,
+        });
+      } else {
+        const item = summaryMap.get(uid);
+        item.totalTracks += 1;
+
+        // If initial record lacked name/email, update if found on subsequent checks
+        if ((!item.userName || item.userName === uid) && profileName) {
+          item.userName = profileName;
+        }
+        if (!item.userEmail && profileEmail) {
+          item.userEmail = profileEmail;
+        }
+      }
+    });
+
+    res.json(Array.from(summaryMap.values()));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// 2. Align individual track fetching
+app.get("/api/admin/tracks", auth("admin"), async (req, res) => {
+  const { userId } = req.query;
+  let q = supabase
+    .from("tracks")
+    .select("*, profiles(id, name, email)")
+    .order("recorded_at", { ascending: false });
+
+  if (userId) q = q.eq("user_id", userId);
+
+  const { data, error } = await q;
+  if (error) return res.status(400).json({ error: error.message });
+
+  const list = (data || []).map((t) => {
+    const profileObj = Array.isArray(t.profiles) ? t.profiles[0] : t.profiles;
+    const rawLat = t.latitude != null ? t.latitude : t.lat;
+    const rawLng = t.longitude != null ? t.longitude : t.lng;
+
+    return {
+      id: t.id,
+      userId: t.user_id,
+      lat: rawLat != null ? Number(rawLat) : null,
+      lng: rawLng != null ? Number(rawLng) : null,
+      accuracy: t.accuracy,
+      speed: t.speed,
+      heading: t.heading,
+      recordedAt: t.recorded_at || t.created_at,
+      user: profileObj
+        ? {
+            id: profileObj.id,
+            name: profileObj.name || profileObj.id,
+            email: profileObj.email || "",
+          }
+        : null,
+    };
+  });
+
+  res.json(list);
+});
+
+// 3. Status history endpoint
+app.get("/api/admin/status_history", auth("admin"), async (req, res) => {
+  const { userId, limit } = req.query;
+  let q = supabase
+    .from("status_events")
+    .select("*, profiles(id, name, email)")
+    .order("at", { ascending: false })
+    .limit(Number(limit) || 50);
+
+  if (userId) q = q.eq("user_id", userId);
+
+  const { data, error } = await q;
+  if (error) return res.status(400).json({ error: error.message });
+
+  const list = (data || []).map((s) => {
+    const profileObj = Array.isArray(s.profiles) ? s.profiles[0] : s.profiles;
+    const rawLat = s.latitude != null ? s.latitude : s.lat;
+    const rawLng = s.longitude != null ? s.longitude : s.lng;
+
+    return {
+      ...s,
+      lat: rawLat != null ? Number(rawLat) : null,
+      lng: rawLng != null ? Number(rawLng) : null,
+      userName: profileObj ? profileObj.name : s.user_id,
+      userEmail: profileObj ? profileObj.email : "",
+    };
+  });
+
+  res.json(list);
+});
+
+// 4. Regular status history query
 app.get("/api/status_history", auth(), async (req, res) => {
   const { userId, limit } = req.query;
   const selfId = String(req.user.id || "");
@@ -2723,74 +2868,37 @@ app.get("/api/status_history", auth(), async (req, res) => {
     .select("*")
     .order("at", { ascending: false })
     .limit(Number(limit) || 50);
+
   if (isAdmin(req.user)) {
     if (userId) q = q.eq("user_id", userId);
   } else {
-    if (userId && String(userId) !== selfId)
+    if (userId && String(userId) !== selfId) {
       return res.status(403).json({ error: "Forbidden" });
+    }
     q = q.eq("user_id", selfId);
   }
+
   const { data, error } = await q;
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
 
-app.get("/api/admin/status_history", auth("admin"), async (req, res) => {
-  const { userId, limit } = req.query;
-  let q = supabase
-    .from("status_events")
-    .select("*")
-    .order("at", { ascending: false })
-    .limit(Number(limit) || 50);
-  if (userId) q = q.eq("user_id", userId);
-  const { data, error } = await q;
-  if (error) return res.status(400).json({ error: error.message });
-  res.json(data);
-});
+// 5. Delete track history for a specific user
+app.delete(
+  "/api/admin/tracks/user/:userId",
+  auth("admin"),
+  async (req, res) => {
+    const userId = String(req.params.userId);
+    const { error } = await supabase
+      .from("tracks")
+      .delete()
+      .eq("user_id", userId);
+    if (error) return res.status(400).json({ error: error.message });
+    res.json({ ok: true });
+  },
+);
 
-// app.get("/api/track/me", auth(), async (req, res) => {
-//   const { data, error } = await supabase
-//     .from("tracks")
-//     .select("*")
-//     .eq("user_id", req.user.id)
-//     .order("recorded_at", { ascending: false });
-//   if (error) return res.status(400).json({ error: error.message });
-//   res.json(
-//     (data || []).map((t) => ({
-//       id: t.id,
-//       userId: t.user_id,
-//       lat: t.lat,
-//       lng: t.lng,
-//       accuracy: t.accuracy,
-//       speed: t.speed,
-//       heading: t.heading,
-//       recordedAt: t.recorded_at,
-//     })),
-//   );
-// });
-
-app.get("/api/admin/tracks", auth("admin"), async (req, res) => {
-  const { data, error } = await supabase
-    .from("tracks")
-    .select("*, profiles(id, name, email)")
-    .order("recorded_at", { ascending: false });
-  if (error) return res.status(400).json({ error: error.message });
-  const list = (data || []).map((t) => ({
-    id: t.id,
-    userId: t.user_id,
-    lat: t.lat,
-    lng: t.lng,
-    accuracy: t.accuracy,
-    speed: t.speed,
-    heading: t.heading,
-    recordedAt: t.recorded_at,
-    user: t.profiles
-      ? { id: t.profiles.id, name: t.profiles.name, email: t.profiles.email }
-      : null,
-  }));
-  res.json(list);
-});
-
+// 6. Delete a single track by ID
 app.delete("/api/admin/tracks/:id", auth("admin"), async (req, res) => {
   const id = req.params.id;
   const { error } = await supabase.from("tracks").delete().eq("id", id);
