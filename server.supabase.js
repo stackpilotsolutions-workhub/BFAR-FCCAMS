@@ -1461,6 +1461,9 @@ app.post("/api/status", auth(), async (req, res) => {
   const at = req.body.at || new Date().toISOString();
   const userId = req.user.id;
 
+  // Normalize incoming status to 'active' or 'inactive'
+  const normalizedStatus = status === "active" ? "active" : "inactive";
+
   // 1. Check for the user's latest status event
   const { data: latestEvents } = await supabase
     .from("status_events")
@@ -1476,7 +1479,7 @@ app.post("/api/status", auth(), async (req, res) => {
   let error;
 
   // 2. If status is unchanged, update the existing row instead of inserting a duplicate
-  if (latestEvent && latestEvent.status === status) {
+  if (latestEvent && latestEvent.status === normalizedStatus) {
     const { data: updated, error: err } = await supabase
       .from("status_events")
       .update({
@@ -1497,7 +1500,7 @@ app.post("/api/status", auth(), async (req, res) => {
       .insert({
         id: nanoid(),
         user_id: userId,
-        status,
+        status: normalizedStatus,
         latitude: lat != null ? Number(lat) : null,
         longitude: lng != null ? Number(lng) : null,
         at,
@@ -1512,9 +1515,9 @@ app.post("/api/status", auth(), async (req, res) => {
   if (error) return res.status(400).json({ error: error.message });
 
   // Update in-memory cache
-  statusStateByUserId.set(userId, { status, at, lat, lng });
+  statusStateByUserId.set(userId, { status: normalizedStatus, at, lat, lng });
 
-  if (status === "port") {
+  if (normalizedStatus === "inactive") {
     const prev = trackingStateByUserId.get(userId) || {};
     trackingStateByUserId.set(userId, { ...prev, active: false });
 
@@ -1541,14 +1544,14 @@ app.post("/api/track", auth(), async (req, res) => {
 
   const userId = req.user.id;
   const atTime = recordedAt || new Date().toISOString();
-  const currentStatus = statusStateByUserId.get(userId)?.status || "transit";
+  const currentStatus = statusStateByUserId.get(userId)?.status || "active";
 
-  // 1. Check tracks table independently for an existing active transit record
+  // 1. Check tracks table independently for an existing active tracking record
   const { data: existingTrack } = await supabase
     .from("tracks")
     .select("id")
     .eq("user_id", userId)
-    .eq("status", "transit")
+    .eq("status", "active")
     .eq("active", true)
     .limit(1);
 
@@ -1567,7 +1570,7 @@ app.post("/api/track", auth(), async (req, res) => {
     recorded_at: atTime,
   };
 
-  // Insert into 'tracks' ONLY if an active transit track point doesn't already exist
+  // Insert into 'tracks' ONLY if an active track point doesn't already exist
   if (!hasTrackRecord) {
     const trackId = nanoid();
     dbPoint.id = trackId;
@@ -1651,7 +1654,7 @@ app.post("/api/track/stop", auth(), async (req, res) => {
   // 1. Update in-memory tracking state
   const prev = trackingStateByUserId.get(userId) || {};
   trackingStateByUserId.set(userId, { ...prev, active: false });
-  statusStateByUserId.set(userId, { status: "port", at });
+  statusStateByUserId.set(userId, { status: "inactive", at });
 
   // 2. Mark active tracks as inactive in Supabase
   await supabase
@@ -1660,7 +1663,7 @@ app.post("/api/track/stop", auth(), async (req, res) => {
     .eq("user_id", userId)
     .eq("active", true);
 
-  // 3. Update existing status_events record to 'port' instead of inserting
+  // 3. Update existing status_events record to 'inactive' instead of inserting
   const { data: latestEvents } = await supabase
     .from("status_events")
     .select("id")
@@ -1671,13 +1674,13 @@ app.post("/api/track/stop", auth(), async (req, res) => {
   if (latestEvents && latestEvents.length > 0) {
     await supabase
       .from("status_events")
-      .update({ status: "port", at })
+      .update({ status: "inactive", at })
       .eq("id", latestEvents[0].id);
   } else {
     await supabase.from("status_events").insert({
       id: nanoid(),
       user_id: userId,
-      status: "port",
+      status: "inactive",
       at,
     });
   }

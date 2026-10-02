@@ -653,13 +653,13 @@ async function getFreshPosition() {
 
 function setStatusUi(status, at) {
   // Normalize string for safe matching
-  const normalizedStatus = String(status || "transit")
+  const normalizedStatus = String(status || "active")
     .toLowerCase()
     .trim();
-  const isPort = normalizedStatus === "port" || normalizedStatus === "docked";
+  const isActive = normalizedStatus === "active";
 
-  // Match the exact display text expected by your UI
-  const text = isPort ? "In Port" : "In Transit";
+  // Match display text expected by UI
+  const text = isActive ? "Active" : "Inactive";
 
   const textElem = document.getElementById("status_text");
   const indicatorElem = document.getElementById("status_indicator");
@@ -669,9 +669,9 @@ function setStatusUi(status, at) {
   }
 
   if (indicatorElem) {
-    indicatorElem.style.backgroundColor = isPort
-      ? "var(--warning)"
-      : "var(--success)";
+    indicatorElem.style.backgroundColor = isActive
+      ? "var(--success)"
+      : "var(--warning)";
   }
 
   const when = document.getElementById("status_when");
@@ -691,40 +691,43 @@ function setStatusUi(status, at) {
 }
 
 async function setStatus(nextStatus, opts) {
-  const status = nextStatus === "port" ? "port" : "transit";
+  const status = nextStatus === "active" ? "active" : "inactive";
   const at = new Date().toISOString();
 
   // Obtain position before changing status so backend receives coordinates
   const p = await getFreshPosition();
 
-  if (status === "port") {
-    if (!p)
-      throw new Error("No location available. Enable GPS to set Port status.");
+  if (status === "inactive") {
     stopTracking({ skipNotify: true });
-    const item = await postStatus("port", p.lat, p.lng, at);
-    state.status = "port";
+    const item = await postStatus(
+      "inactive",
+      p ? p.lat : undefined,
+      p ? p.lng : undefined,
+      at,
+    );
+    state.status = "inactive";
     state.statusAt = item && item.at ? item.at : at;
-    setStatusUi("port", state.statusAt);
-    updateTrackMapPosition({
-      lat: p.lat,
-      lng: p.lng,
-      accuracy: p.accuracy,
-      at: state.statusAt,
-    });
+    setStatusUi("inactive", state.statusAt);
+    if (p) {
+      updateTrackMapPosition({
+        lat: p.lat,
+        lng: p.lng,
+        accuracy: p.accuracy,
+        at: state.statusAt,
+      });
+    }
     clearTrackRoute();
     return;
   }
 
-  // Handle 'transit'
-  const item = await postStatus(
-    "transit",
-    p && p.lat != null ? p.lat : undefined,
-    p && p.lng != null ? p.lng : undefined,
-    at,
-  );
-  state.status = "transit";
+  // Handle 'active'
+  if (!p)
+    throw new Error("No location available. Enable GPS to set Active status.");
+
+  const item = await postStatus("active", p.lat, p.lng, at);
+  state.status = "active";
   state.statusAt = item && item.at ? item.at : at;
-  setStatusUi("transit", state.statusAt);
+  setStatusUi("active", state.statusAt);
 
   if (!(opts && opts.skipStartTracking)) startTracking();
 }
@@ -739,8 +742,12 @@ async function loadMyStatus() {
 
     // 1. Recover Status
     const statusObj = d.status || {};
-    const status = statusObj.status ? String(statusObj.status) : "transit";
-    state.status = status === "port" ? "port" : "transit";
+    const rawStatus = statusObj.status
+      ? String(statusObj.status).toLowerCase()
+      : "";
+    const isCurrentlyActive = rawStatus === "active" || rawStatus === "transit";
+
+    state.status = isCurrentlyActive ? "active" : "inactive";
     state.statusAt = statusObj.at ? String(statusObj.at) : null;
     setStatusUi(state.status, state.statusAt);
 
@@ -773,26 +780,22 @@ async function loadMyStatus() {
       updateTrackMapPosition(pos);
     }
 
-    // 3. Prevent duplicate starts & align UI with active transit state
-    const isCurrentlyTransit = state.status === "transit";
-
-    if (d.isTracking || isCurrentlyTransit) {
+    // 3. Prevent duplicate starts & align UI with active tracking state
+    if (d.isTracking || isCurrentlyActive) {
       setTrackingUi(
         true,
-        isCurrentlyTransit
-          ? "In Transit (Tracking Active)"
-          : "Resuming GPS tracking...",
+        isCurrentlyActive ? "Active (Tracking)" : "Resuming GPS tracking...",
         "small success",
       );
-      if (!state.watchId && isCurrentlyTransit) {
+      if (!state.watchId && isCurrentlyActive) {
         startTracking();
       }
     } else {
-      setTrackingUi(false, "In Port - Not tracking", "small");
+      setTrackingUi(false, "Inactive - Not tracking", "small");
     }
   } catch (err) {
     console.error("Failed to restore status state:", err);
-    state.status = state.status || "transit";
+    state.status = state.status || "active";
     setStatusUi(state.status, state.statusAt || null);
   }
 }
@@ -801,9 +804,10 @@ function updateTrackMapPosition(p) {
   if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return;
   initTrackMap();
   if (!state.trackMap || !window.L) return;
-  const isPort = state.status === "port";
-  const markerColor = isPort ? "#ff9500" : "#34c759";
-  const markerRadius = isPort ? 8 : 7;
+  const isActive = state.status === "active";
+  const markerColor = isActive ? "#34c759" : "#ff9500";
+  const markerRadius = isActive ? 7 : 8;
+
   if (!state.trackMarker) {
     state.trackMarker = window.L.circleMarker([p.lat, p.lng], {
       radius: markerRadius,
@@ -829,6 +833,7 @@ function updateTrackMapPosition(p) {
       } catch {}
     }
   }
+
   if (p.accuracy != null && Number.isFinite(p.accuracy) && p.accuracy > 0) {
     if (!state.trackAccuracyCircle) {
       state.trackAccuracyCircle = window.L.circle([p.lat, p.lng], {
@@ -843,7 +848,8 @@ function updateTrackMapPosition(p) {
       state.trackAccuracyCircle.setRadius(p.accuracy);
     }
   }
-  if (state.status === "transit") {
+
+  if (state.status === "active") {
     ensureTrackRoute();
     const key = p.at || p.recordedAt || String(Date.now());
     if (key && key !== state.trackRouteLastKey) {
@@ -859,6 +865,7 @@ function updateTrackMapPosition(p) {
   } else {
     clearTrackRoute();
   }
+
   try {
     state.trackMap.setView(
       [p.lat, p.lng],
@@ -866,43 +873,6 @@ function updateTrackMapPosition(p) {
       { animate: false },
     );
   } catch {}
-}
-
-function readLastLocation() {
-  try {
-    const raw = localStorage.getItem("last_location");
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return null;
-    return p;
-  } catch {
-    return null;
-  }
-}
-
-function saveLastLocation(p) {
-  try {
-    localStorage.setItem(
-      "last_location",
-      JSON.stringify({
-        lat: p.lat,
-        lng: p.lng,
-        at: p.at || new Date().toISOString(),
-      }),
-    );
-  } catch {}
-}
-
-async function ensureGpsAvailable() {
-  if (!navigator.geolocation) throw new Error("Geolocation not supported");
-  if (navigator.permissions && navigator.permissions.query) {
-    try {
-      const s = await navigator.permissions.query({ name: "geolocation" });
-      if (s && s.state === "denied")
-        throw new Error("Location permission denied");
-    } catch {}
-  }
-  return true;
 }
 
 async function startTracking() {
@@ -929,14 +899,14 @@ async function startTracking() {
     return;
   }
 
-  // Sync state if not currently in transit
-  if (state.status !== "transit") {
+  // Sync state if not currently active
+  if (state.status !== "active") {
     try {
-      await setStatus("transit", { skipStartTracking: true });
+      await setStatus("active", { skipStartTracking: true });
     } catch (e) {
       setTrackingUi(
         false,
-        e.message || "Failed to set transit status",
+        e.message || "Failed to set active status",
         "small error",
       );
       return;
@@ -1083,8 +1053,6 @@ async function startTracking() {
 }
 
 async function stopTracking(opts) {
-  const wasTracking = state.watchId != null;
-
   if (state.watchId != null) {
     try {
       navigator.geolocation.clearWatch(state.watchId);
@@ -1095,21 +1063,58 @@ async function stopTracking(opts) {
   setTrackingUi(false, "Stopping tracking...", "small");
 
   try {
-    // Post "port" status to database to complete the journey record
+    // Post "inactive" status to database
     if (!(opts && opts.skipNotify)) {
-      await setStatus("port", { skipStartTracking: true });
+      await setStatus("inactive", { skipStartTracking: true });
     }
-    setTrackingUi(false, "Journey complete (In Port)", "small");
+    setTrackingUi(false, "Tracking stopped (Inactive)", "small");
   } catch (err) {
-    console.error("Error setting port status:", err);
+    console.error("Error setting inactive status:", err);
     setTrackingUi(
       false,
-      "Stopped, but failed to update status to Port",
+      "Stopped, but failed to update status to Inactive",
       "small error",
     );
   }
 
   setTrackMapStatus("Not tracking", "small");
+}
+
+function readLastLocation() {
+  try {
+    const raw = localStorage.getItem("last_location");
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return null;
+    return p;
+  } catch {
+    return null;
+  }
+}
+
+function saveLastLocation(p) {
+  try {
+    localStorage.setItem(
+      "last_location",
+      JSON.stringify({
+        lat: p.lat,
+        lng: p.lng,
+        at: p.at || new Date().toISOString(),
+      }),
+    );
+  } catch {}
+}
+
+async function ensureGpsAvailable() {
+  if (!navigator.geolocation) throw new Error("Geolocation not supported");
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const s = await navigator.permissions.query({ name: "geolocation" });
+      if (s && s.state === "denied")
+        throw new Error("Location permission denied");
+    } catch {}
+  }
+  return true;
 }
 
 window.addEventListener("beforeunload", function () {

@@ -243,61 +243,286 @@ if (!state.token || (state.user && state.user.role !== "admin")) {
     initAdmin();
   }
 }
-async function loginAdmin() {
-  try {
-    const r = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: document.getElementById("email").value.trim(),
-        password: document.getElementById("pass").value,
-      }),
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Login failed");
-    if (d.user.role !== "admin") throw new Error("Not an admin account");
-    state.token = d.token;
-    document.body.classList.remove("auth-bg");
-    document.getElementById("login_card").style.display = "none";
-    document.getElementById("admin_app").style.display = "";
-    document.getElementById("msg").textContent = "";
-    document.getElementById("logout_btn").style.display = "";
-    showAdminModule("mod_users");
-    loadData();
-  } catch (e) {
-    document.getElementById("msg").textContent = e.message;
-  }
-}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function logoutAdmin() {
-  state.token = null;
-  state.user = null;
-  try {
-    localStorage.removeItem("fish_token");
-    localStorage.removeItem("fish_user");
-  } catch {}
-  if (state.refreshTimer) {
-    clearInterval(state.refreshTimer);
-    state.refreshTimer = null;
+  if (document.getElementById("logoutModal")) return;
+
+  // Embedded Styles for Animations & Layout
+  if (!document.getElementById("logoutModalStyles")) {
+    const style = document.createElement("style");
+    style.id = "logoutModalStyles";
+    style.textContent = `
+      @keyframes modalFadeIn {
+        from { opacity: 0; transform: scale(0.95) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+      .logout-spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid #eaf7ff;
+        border-top-color: #0077b6;
+        border-radius: 50%;
+        animation: spin 0.75s linear infinite;
+        margin: 0 auto;
+      }
+      .logout-btn-action {
+        flex: 1;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .logout-btn-cancel {
+        border: 1.5px solid #bde0fe;
+        background: #ffffff;
+        color: #023047;
+      }
+      .logout-btn-cancel:hover {
+        background: #f4fafd;
+        border-color: #0077b6;
+      }
+      .logout-btn-confirm {
+        border: none;
+        background: #ef476f;
+        color: #ffffff;
+        box-shadow: 0 4px 12px rgba(239, 71, 111, 0.25);
+      }
+      .logout-btn-confirm:hover {
+        background: #d9385e;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(239, 71, 111, 0.35);
+      }
+      .cleanup-step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        color: #4f5d75;
+        padding: 6px 0;
+        text-align: left;
+        border-bottom: 1px dashed #eaf7ff;
+      }
+      .cleanup-step i {
+        font-size: 14px;
+        width: 16px;
+      }
+    `;
+    document.head.appendChild(style);
   }
-  stopUserMapPolling();
-  try {
-    if (window._liveES) {
-      window._liveES.close();
-      window._liveES = null;
+
+  const modalOverlay = document.createElement("div");
+  modalOverlay.id = "logoutModal";
+  modalOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(2, 48, 71, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  modalOverlay.innerHTML = `
+    <div id="logoutCard" style="
+      background: #ffffff;
+      padding: 32px 28px;
+      border-radius: 20px;
+      box-shadow: 0 20px 45px rgba(2, 48, 71, 0.22);
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      border: 1px solid #bde0fe;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      animation: modalFadeIn 0.2s ease-out forwards;
+    ">
+      <div id="logoutIconBox" style="
+        width: 64px;
+        height: 64px;
+        background: #eaf7ff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px auto;
+      ">
+        <i class="fa-solid fa-right-from-bracket" style="font-size: 26px; color: #0077b6;"></i>
+      </div>
+
+      <h3 id="logoutTitle" style="margin: 0 0 8px 0; color: #023047; font-size: 20px; font-weight: 800; letter-spacing: -0.01em;">
+        Signing Out Admin
+      </h3>
+
+      <p id="logoutSubtitle" style="margin: 0 0 24px 0; color: #4f5d75; font-size: 13.5px; line-height: 1.45;">
+        Are you sure you want to exit the admin portal?
+      </p>
+
+      <div id="logoutProgressArea" style="display: none; margin-bottom: 20px;"></div>
+
+      <div id="logoutActions" style="display: flex; gap: 12px;">
+        <button class="logout-btn-action logout-btn-cancel" onclick="closeLogoutModal()">Cancel</button>
+        <button class="logout-btn-action logout-btn-confirm" onclick="proceedLogoutAdmin()">Logout</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modalOverlay);
+}
+
+function closeLogoutModal() {
+  const modal = document.getElementById("logoutModal");
+  if (modal) modal.remove();
+}
+
+async function proceedLogoutAdmin() {
+  const iconBox = document.getElementById("logoutIconBox");
+  const title = document.getElementById("logoutTitle");
+  const subtitle = document.getElementById("logoutSubtitle");
+  const actions = document.getElementById("logoutActions");
+  const progressArea = document.getElementById("logoutProgressArea");
+
+  // Switch UI to active cleanup mode
+  actions.style.display = "none";
+  subtitle.style.display = "none";
+  progressArea.style.display = "block";
+
+  iconBox.style.background = "#ffffff";
+  iconBox.innerHTML = `<div class="logout-spinner"></div>`;
+  title.textContent = "Closing Admin Session...";
+
+  const steps = [
+    { id: "step-live", label: "Closing live tracking connections..." },
+    { id: "step-map", label: "Stopping map polling services..." },
+    { id: "step-state", label: "Clearing admin tokens & state..." },
+    { id: "step-storage", label: "Removing stored credentials..." },
+  ];
+
+  progressArea.innerHTML = steps
+    .map(
+      (s) => `
+    <div class="cleanup-step" id="${s.id}">
+      <i class="fa-regular fa-circle" style="color: #8d99ae;"></i>
+      <span>${s.label}</span>
+    </div>
+  `,
+    )
+    .join("");
+
+  const updateStep = (id, status) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const icon = el.querySelector("i");
+    if (status === "active") {
+      icon.className = "fa-solid fa-spinner";
+      icon.style.animation = "spin 0.8s linear infinite";
+      icon.style.color = "#0077b6";
+      el.style.color = "#023047";
+      el.style.fontWeight = "600";
+    } else if (status === "done") {
+      icon.className = "fa-solid fa-circle-check";
+      icon.style.animation = "none";
+      icon.style.color = "#06d6a0";
+      el.style.color = "#4f5d75";
+      el.style.fontWeight = "400";
+    } else if (status === "error") {
+      icon.className = "fa-solid fa-circle-exclamation";
+      icon.style.animation = "none";
+      icon.style.color = "#ef476f";
     }
-  } catch {}
-  window._liveRetryTimer = null;
-  window._liveRetryAttempts = 0;
-  window._authInvalidated = true;
-  const logoutBtn = document.getElementById("logout_btn");
-  if (logoutBtn) logoutBtn.style.display = "none";
-  const adminApp = document.getElementById("admin_app");
-  if (adminApp) adminApp.style.display = "none";
-  const loginCard = document.getElementById("login_card");
-  if (loginCard) loginCard.style.display = "";
-  document.body.classList.add("auth-bg");
-  location.href = "/login.html";
+  };
+
+  try {
+    // Step 1: Terminate Live Stream / SSE Connections
+    updateStep("step-live", "active");
+    await delay(300);
+    try {
+      if (window._liveES) {
+        window._liveES.close();
+        window._liveES = null;
+      }
+    } catch {}
+    window._liveRetryTimer = null;
+    window._liveRetryAttempts = 0;
+    window._authInvalidated = true;
+    updateStep("step-live", "done");
+
+    // Step 2: Stop Map Polling
+    updateStep("step-map", "active");
+    await delay(300);
+    if (typeof stopUserMapPolling === "function") {
+      try {
+        stopUserMapPolling();
+      } catch {}
+    }
+    updateStep("step-map", "done");
+
+    // Step 3: Reset Timers & Admin State
+    updateStep("step-state", "active");
+    await delay(300);
+    if (state.refreshTimer) {
+      clearInterval(state.refreshTimer);
+      state.refreshTimer = null;
+    }
+    state.token = null;
+    state.user = null;
+    updateStep("step-state", "done");
+
+    // Step 4: Clear Local Storage
+    updateStep("step-storage", "active");
+    await delay(300);
+    try {
+      localStorage.removeItem("fish_token");
+      localStorage.removeItem("fish_user");
+    } catch {}
+    updateStep("step-storage", "done");
+
+    // Final Success State
+    iconBox.style.background = "#e6fdf5";
+    iconBox.innerHTML = `<i class="fa-solid fa-check" style="font-size: 28px; color: #06d6a0;"></i>`;
+    title.textContent = "Admin Logged Out!";
+
+    if (typeof showToast === "function") {
+      showToast("Admin session ended successfully.", "success");
+    }
+
+    await delay(500);
+
+    // Hide admin view elements and redirect
+    const logoutBtn = document.getElementById("logout_btn");
+    if (logoutBtn) logoutBtn.style.display = "none";
+    const adminApp = document.getElementById("admin_app");
+    if (adminApp) adminApp.style.display = "none";
+    const loginCard = document.getElementById("login_card");
+    if (loginCard) loginCard.style.display = "";
+    document.body.classList.add("auth-bg");
+
+    location.href = "/login.html";
+  } catch (error) {
+    iconBox.style.background = "#ffeef2";
+    iconBox.innerHTML = `<i class="fa-solid fa-xmark" style="font-size: 28px; color: #ef476f;"></i>`;
+    title.textContent = "Logout Warning";
+
+    if (typeof showToast === "function") {
+      showToast("Session cleared with warnings.", "error");
+    }
+
+    // Force Cleanup Fallback
+    try {
+      localStorage.removeItem("fish_token");
+      localStorage.removeItem("fish_user");
+    } catch {}
+
+    await delay(1000);
+    location.href = "/login.html";
+  }
 }
 let _redirectingToLogin = false;
 function handleAuthFailure() {
