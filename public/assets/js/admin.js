@@ -2367,6 +2367,73 @@ async function downloadExcel() {
   window.XLSX.writeFile(wb, "catches.xlsx");
 }
 
+// Keep your original downloadExcel function if you still want it, then add these:
+
+async function downloadFullBackup() {
+  if (
+    !confirm(
+      "Are you sure you want to download a complete backup of all database tables?",
+    )
+  )
+    return;
+  try {
+    const res = await fetch("/api/admin/backup", {
+      headers: { Authorization: "Bearer " + state.token },
+    });
+    if (!res.ok) throw new Error("Failed to generate backup");
+
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `supabase-full-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Backup error: " + err.message);
+  }
+}
+
+async function restoreFullBackup() {
+  const fileInput = document.getElementById("backupFile");
+  if (!fileInput.files.length) {
+    alert("Please select a JSON backup file first.");
+    return;
+  }
+
+  if (
+    !confirm(
+      "WARNING: Restoring will write/upsert data across your database tables. Proceed with caution?",
+    )
+  )
+    return;
+
+  const file = fileInput.files[0];
+  try {
+    const text = await file.text();
+    const jsonData = JSON.parse(text);
+
+    const res = await fetch("/api/admin/restore", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + state.token,
+      },
+      body: JSON.stringify(jsonData),
+    });
+
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || "Restore failed");
+
+    alert("Database restored successfully!");
+    location.reload();
+  } catch (err) {
+    alert("Restore error: " + err.message);
+  }
+}
+
 function normalizeTrackPoint(p) {
   const userId = p && p.userId != null ? String(p.userId) : null;
   const lat = p && p.lat != null ? Number(p.lat) : NaN;

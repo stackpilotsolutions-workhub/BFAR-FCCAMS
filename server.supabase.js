@@ -2029,6 +2029,106 @@ app.get("/api/catches", auth("admin"), async (req, res) => {
   res.json(list);
 });
 
+// BACKUP ENDPOINT
+app.get("/api/admin/backup", auth("admin"), async (req, res) => {
+  try {
+    const tables = [
+      "profiles",
+      "fishing_gears",
+      "species",
+      "protected_areas",
+      "status_events",
+      "catches",
+      "activity_logs",
+      "alerts",
+      "images",
+      "push",
+    ];
+
+    const backupData = {};
+
+    for (const tableName of tables) {
+      const { data, error } = await supabase.from(tableName).select("*");
+      if (error)
+        throw new Error(`Error backing up ${tableName}: ${error.message}`);
+
+      // Clean data for specific tables if they have generated columns
+      let cleanedData = data || [];
+      if (tableName === "status_events") {
+        cleanedData = cleanedData.map((row) => {
+          const copy = { ...row };
+          delete copy.lat; // Remove generated column to prevent restoration errors
+          delete copy.lng; // Remove generated column if applicable
+          return copy;
+        });
+      }
+
+      backupData[tableName] = cleanedData;
+    }
+
+    res.json(backupData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// RESTORE ENDPOINT
+app.post("/api/admin/restore", auth("admin"), async (req, res) => {
+  const backupData = req.body;
+  if (!backupData || typeof backupData !== "object") {
+    return res.status(400).json({ error: "Invalid backup file format." });
+  }
+
+  const tables = [
+    "profiles",
+    "fishing_gears",
+    "species",
+    "protected_areas",
+    "status_events",
+    "catches",
+    "activity_logs",
+    "alerts",
+    "images",
+    "push",
+  ];
+
+  try {
+    for (const tableName of tables) {
+      if (
+        backupData[tableName] &&
+        Array.isArray(backupData[tableName]) &&
+        backupData[tableName].length > 0
+      ) {
+        // Ensure we strip out any auto-generated fields just in case they exist in older backup files
+        let rowsToUpsert = backupData[tableName];
+        if (tableName === "status_events") {
+          rowsToUpsert = rowsToUpsert.map((row) => {
+            const copy = { ...row };
+            delete copy.lat;
+            delete copy.lng;
+            return copy;
+          });
+        }
+
+        const { error } = await supabase
+          .from(tableName)
+          .upsert(rowsToUpsert, { onConflict: "id" });
+
+        if (error) {
+          throw new Error(
+            `Failed to restore table ${tableName}: ${error.message}`,
+          );
+        }
+      }
+    }
+
+    res.json({ success: true, message: "Database successfully restored." });
+  } catch (err) {
+    console.error("Restore error:", err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.patch("/api/admin/catches/:id", auth("admin"), async (req, res) => {
   const id = req.params.id;
   const {
@@ -3454,7 +3554,7 @@ app.get("/api/public/tiles/:z/:x/:y.png", async (req, res) => {
     const key = `${z}/${x}/${y}`;
     const now = Date.now();
     const cached = tileCache.get(key);
-    if (cached && cached.expiresAt > now) {
+    if (cached && cached.expiresAt < now) {
       res.setHeader("Content-Type", cached.contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
       return res.send(cached.body);

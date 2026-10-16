@@ -124,23 +124,11 @@
               hidden
             ></span>
           </button>
-          <button
-            data-module="mod_exports"
-            onclick="showAdminModule('mod_exports')"
-          >
-            <i class="fa-solid fa-file-export icon"></i
-            ><span class="menu-label">Exports</span
-            ><span
-              class="menu-badge"
-              data-badge-for="mod_exports"
-              hidden
-            ></span>
-          </button>
-          <button data-module="mod_live" onclick="showAdminModule('mod_live')">
+          <!-- <button data-module="mod_live" onclick="showAdminModule('mod_live')">
             <i class="fa-solid fa-satellite-dish icon"></i
             ><span class="menu-label">Live</span
             ><span class="menu-badge" data-badge-for="mod_live" hidden></span>
-          </button>
+          </button> -->
           <button
             data-module="mod_vessels"
             onclick="showAdminModule('mod_vessels')"
@@ -162,6 +150,18 @@
             ><span
               class="menu-badge"
               data-badge-for="mod_activity"
+              hidden
+            ></span>
+          </button>
+          <button
+            data-module="mod_exports"
+            onclick="showAdminModule('mod_exports')"
+          >
+            <i class="fa-solid fa-file-export icon"></i
+            ><span class="menu-label">Backup & Restore</span
+            ><span
+              class="menu-badge"
+              data-badge-for="mod_exports"
               hidden
             ></span>
           </button>
@@ -1030,7 +1030,7 @@
               class="fa-solid fa-file-export"
               style="color: var(--primary)"
             ></i>
-            Exports
+            Database Backup & Restore
           </h2>
           <div
             style="
@@ -1041,7 +1041,7 @@
             "
           >
             <i
-              class="fa-solid fa-file-excel"
+              class="fa-solid fa-database"
               style="
                 font-size: 48px;
                 color: var(--success);
@@ -1049,15 +1049,49 @@
               "
             ></i>
             <p>
-              Download complete database export including users, catches, and
-              activity logs.
+              Download a full JSON backup of all database tables or restore your
+              data from a previous backup file.
             </p>
+
+            <!-- Backup Button -->
             <button
-              onclick="downloadExcel()"
-              style="width: auto; padding: 12px 32px"
+              onclick="downloadFullBackup()"
+              style="width: auto; padding: 12px 32px; margin-right: 10px"
             >
-              <i class="fa-solid fa-download"></i> Download Excel
+              <i class="fa-solid fa-download"></i> Download Full Backup
             </button>
+
+            <!-- Restore Section -->
+            <div
+              style="
+                margin-top: 20px;
+                border-top: 1px solid var(--border, #ccc);
+                padding-top: 20px;
+              "
+            >
+              <input
+                type="file"
+                id="backupFile"
+                accept=".json"
+                style="
+                  margin-bottom: 10px;
+                  display: block;
+                  margin-left: auto;
+                  margin-right: auto;
+                "
+              />
+              <button
+                onclick="restoreFullBackup()"
+                style="
+                  width: auto;
+                  padding: 10px 24px;
+                  background: var(--danger, #e74c3c);
+                  color: white;
+                "
+              >
+                <i class="fa-solid fa-upload"></i> Restore Database
+              </button>
+            </div>
           </div>
         </div>
 
